@@ -66,10 +66,10 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
 	}
 	USLOSS_Context new;
 	USLOSS_ContextInit(&new , stack, stacksize, NULL, launch);
+	P3_AllocatePageTable(*cid);
 	printf("%d----%d\n", stacksize,890);
 	//USLOSS_ContextSwitch(contexts[i]->Context, &new);
     return result;
-}
 
 int P1ContextSwitch(int cid) {
     int result = P1_SUCCESS;
