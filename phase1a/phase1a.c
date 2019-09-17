@@ -39,7 +39,6 @@ void P1ContextInit(void)
 	for (i = 0; i < P1_MAXPROC; i++){
 		contexts[i].startFunc = NULL;
 		contexts[i].startArg = NULL;
-        contexts[i].context = NULL;
         contexts[i].cid = -1;
 	}
 }
@@ -82,8 +81,8 @@ int P1ContextSwitch(int cid) {
     int result = P1_SUCCESS;
     if (cidIsValid(cid)) return P1_INVALID_CID;
 
-    USLOSS_Context oldContext = cidIsValid(currentCid) ?  contexts[currentCid] : NULL;
-    USLOSS_ContextSwitch(oldContext, contexts[cid].context);
+    USLOSS_Context *oldContext = cidIsValid(currentCid) ? &contexts[currentCid] : NULL;
+    USLOSS_ContextSwitch(oldContext, &(contexts[cid].context));
     return result;
 }
 
