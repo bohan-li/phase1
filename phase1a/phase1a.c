@@ -7,10 +7,16 @@
 extern  USLOSS_PTE  *P3_AllocatePageTable(int cid);
 extern  void        P3_FreePageTable(int cid);
 
+void checkIfKernelMode();
+
 typedef struct Context {
     void            (*startFunc)(void *);
     void            *startArg;
     USLOSS_Context  context;
+
+    int cid;
+    void *stack;
+    USLOSS_PTE pageTable;
     // you'll need more stuff here
 } Context;
 
@@ -29,13 +35,14 @@ static void launch(void)
 
 void P1ContextInit(void)
 {
-    // initialize contexts
+    checkIfKernelMode();
 	int i;
 	for (i = 0; i < P1_MAXPROC; i++){
 		contexts[i].startFunc = NULL;
 		contexts[i].startArg = NULL;
+        contexts[i].context = NULL;
+        contexts[i].cid = -1;
 	}
-	
 }
 
 int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
@@ -44,25 +51,12 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
     // allocate the stack, specify the startFunc, etc.
 	int i;
 	for (i = 0; i < P1_MAXPROC; i++){
-		if (contexts[i].startFunc == NULL){
-			break;
-		}
+		
 	}
-	if (i == P1_MAXPROC){
-		return P1_TOO_MANY_CONTEXTS;
-	}
-	contexts[i].startFunc = func;
-	contexts[i].startArg = arg;
-	char stack0[stacksize];
-	if (stacksize < USLOSS_MIN_STACK){
-		return P1_INVALID_STACK;
-	}
-	USLOSS_Context new;
-	USLOSS_ContextInit(&new , stack0, sizeof(stack0), NULL, launch);
-	//USLOSS_ContextSwitch(contexts[i].Context, new);
+	
+	
     return result;
 }
-
 
 int P1ContextSwitch(int cid) {
     int result = P1_SUCCESS;
@@ -72,7 +66,7 @@ int P1ContextSwitch(int cid) {
 
 int P1ContextFree(int cid) {
     int result = P1_SUCCESS;
-    // free the stack and mark the context as unused
+    if (currentCid >= P1_MAXPROC) return P1_TOO_MANY_PROCESSES;
     return result;
 }
 
@@ -93,4 +87,12 @@ P1DisableInterrupts(void)
     // set enabled to TRUE if interrupts are already enabled
     // clear the interrupt bit in the PSR
     return enabled;
+}
+
+
+void checkIfKernelMode(){
+    if (USLOSS_PsrGet() != 1) {
+        printf("The OS must be in kernel mode!");
+        USLOSS_Halt(1);
+    }
 }
