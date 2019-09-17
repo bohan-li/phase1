@@ -30,12 +30,24 @@ static void launch(void)
 void P1ContextInit(void)
 {
     // initialize contexts
+	int i;
+	for (i = 0; i < P1_MAXPROC; i++){
+		contexts[i].startFunc = NULL;
+		contexts[i].startArg = NULL;
+	}
+	
 }
 
 int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
     int result = P1_SUCCESS;
     // find a free context and initialize it
     // allocate the stack, specify the startFunc, etc.
+	int i;
+	for (i = 0; i < P1_MAXPROC; i++){
+		
+	}
+	
+	
     return result;
 }
 
