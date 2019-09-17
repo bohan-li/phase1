@@ -15,12 +15,12 @@ typedef struct Context {
     void            *startArg;
     USLOSS_Context  context;
     void *stack;
+	int isAllocated;
 } Context;
 
 static Context   contexts[P1_MAXPROC];
 
 static int currentCid = -1;
-static int numContexts = 0; // number of allocated contexts
 
 /*
  * Helper function to call func passed to P1ContextCreate with its arg.
@@ -35,21 +35,27 @@ void P1ContextInit(void)
 {
     checkIfKernelMode();
     currentCid = -1;
-    numContexts = 0;
 	int i;
 	for (i = 0; i < P1_MAXPROC; i++){
 		contexts[i].startFunc = NULL;
 		contexts[i].startArg = NULL;
         contexts[i].stack = NULL;
+		contexts[i].isAllocated = FALSE;
 	}
 }
 
 int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
     int result = P1_SUCCESS;
 
-    if (numContexts >= P1_MAXPROC) return P1_TOO_MANY_CONTEXTS;
-    // find a free context and initialize it
-    *cid = numContexts;  
+	// find a free context and initialize it
+	*cid = -1;
+	for (int i = 0; i < P1_MAXPROC; i++) if (!contexts[i].isAllocated) {
+		contexts[i].isAllocated = TRUE;
+		*cid = i;
+		break;
+	}
+    if (*cid == -1) return P1_TOO_MANY_CONTEXTS;
+
 	contexts[*cid].startFunc = func;
 	contexts[*cid].startArg = arg;
 
@@ -61,7 +67,6 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
 	USLOSS_Context new;
 	USLOSS_ContextInit(&new , stack, stacksize, P3_AllocatePageTable(*cid), &launch);
     contexts[*cid].context = new;
-    numContexts++;
     return result;
 }
 
@@ -80,6 +85,7 @@ int P1ContextFree(int cid) {
     int result = P1_SUCCESS;
     if (!cidIsValid(cid)) return P1_INVALID_CID;
 
+	contexts[cid].isAllocated = FALSE;
     free(contexts[cid].stack);
     P3_FreePageTable(cid);
     return result;
@@ -122,5 +128,5 @@ void checkIfKernelMode(){
 }
 
 int cidIsValid(int cid) {
-    return cid >= 0 && cid < numContexts;
+    return cid >= 0 && cid < P1_MAXPROC && contexts[cid].isAllocated;
 }

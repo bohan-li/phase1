@@ -22,6 +22,7 @@ startup(int argc, char **argv)
     rc = P1ContextSwitch(cid);
     // should not return
     assert(rc == P1_SUCCESS);
+	P1ContextFree(cid);
     assert(0);
 }
 
