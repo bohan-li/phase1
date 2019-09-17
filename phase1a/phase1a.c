@@ -8,6 +8,7 @@ extern  USLOSS_PTE  *P3_AllocatePageTable(int cid);
 extern  void        P3_FreePageTable(int cid);
 
 void checkIfKernelMode();
+int cidIsValid(int cid);
 
 typedef struct Context {
     void            (*startFunc)(void *);
