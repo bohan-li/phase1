@@ -108,9 +108,8 @@ P1DisableInterrupts(void)
     enabled = (psr >> 1) & 1; // set enabled to TRUE if interrupts are already enabled
     
     unsigned int mask = 0xFFFFFFFF ^ (1 << 1); // all 1's except for 2nd bit
-    USLOSS_PsrSet(psr & mask);
+    USLOSS_PsrSet(psr & mask); // clear the interrupt bit in the PSR
     
-    // clear the interrupt bit in the PSR
     return enabled;
 }
 
