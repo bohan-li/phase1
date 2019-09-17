@@ -21,6 +21,7 @@ typedef struct Context {
 static Context   contexts[P1_MAXPROC];
 
 static int currentCid = -1;
+static int numContexts = 0;
 
 /*
  * Helper function to call func passed to P1ContextCreate with its arg.
@@ -79,13 +80,16 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
 
 int P1ContextSwitch(int cid) {
     int result = P1_SUCCESS;
-    // switch to the specified context
+    if (cidIsValid(cid)) return P1_INVALID_CID;
+
+    USLOSS_Context oldContext = cidIsValid(currentCid) ?  contexts[currentCid] : NULL;
+    USLOSS_ContextSwitch(oldContext, contexts[cid].context);
     return result;
 }
 
 int P1ContextFree(int cid) {
     int result = P1_SUCCESS;
-    if (cid < 0 || cid > currentCid) return P1_INVALID_CID;
+    if (cidIsValid(cid)) return P1_INVALID_CID;
 
     free(contexts[cid].stack);
     P3_FreePageTable(cid);
@@ -115,10 +119,17 @@ P1DisableInterrupts(void)
     return enabled;
 }
 
-
+/*
+ * Checks psr to make sure OS is in kernel mode, halting USLOSS if not. Mode bit
+ * is the LSB.
+ */
 void checkIfKernelMode(){
     if (USLOSS_PsrGet() & 1 != 1) {
         printf("The OS must be in kernel mode!");
         USLOSS_Halt(1);
     }
+}
+
+int cidIsValid(int cid) {
+    return cid >= 0 && cid < numContexts;
 }
