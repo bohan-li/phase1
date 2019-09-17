@@ -82,8 +82,9 @@ int P1ContextSwitch(int cid) {
     int result = P1_SUCCESS;
     if (cidIsValid(cid)) return P1_INVALID_CID;
 
-    USLOSS_Context *oldContext = cidIsValid(currentCid) ? &contexts[currentCid] : NULL;
+    USLOSS_Context *oldContext = cidIsValid(currentCid) ? &(contexts[currentCid].context) : NULL;
     USLOSS_ContextSwitch(oldContext, &(contexts[cid].context));
+    currentCid = cid;
     return result;
 }
 
@@ -100,7 +101,8 @@ int P1ContextFree(int cid) {
 void 
 P1EnableInterrupts(void) 
 {
-    USLOSS_PsrSet(USLOSS_PsrGet() | (1 << 1)); // set 2nd but of the psr to 1
+    int rc = USLOSS_PsrSet(USLOSS_PsrGet() | (1 << 1)); // set 2nd but of the psr to 1
+    assert(rc == USLOSS_DEV_OK);
 }
 
 /*
@@ -114,8 +116,9 @@ P1DisableInterrupts(void)
     enabled = (psr >> 1) & 1; // set enabled to TRUE if interrupts are already enabled
     
     unsigned int mask = 0xFFFFFFFF ^ (1 << 1); // all 1's except for 2nd bit
-    USLOSS_PsrSet(psr & mask); // clear the interrupt bit in the PSR
-    
+    int rc = USLOSS_PsrSet(psr & mask); // clear the interrupt bit in the PSR
+    assert(rc == USLOSS_DEV_OK);
+
     return enabled;
 }
 
@@ -124,7 +127,7 @@ P1DisableInterrupts(void)
  * is the LSB.
  */
 void checkIfKernelMode(){
-    if (USLOSS_PsrGet() & 1 != 1) {
+    if ((USLOSS_PsrGet() & 1) != 1) {
         printf("The OS must be in kernel mode!");
         USLOSS_Halt(1);
     }
