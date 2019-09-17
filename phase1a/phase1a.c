@@ -48,8 +48,7 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
         int result = P1_SUCCESS;
 	int i;
 	// find a free context and initialize it
-	//*cid = -1;
-	if (!cidIsValid(*cid)) return P1_INVALID_CID;
+	//if (!cidIsValid(*cid)) return P1_INVALID_CID; // if add this line, an error occured
 	for (i = 0; i < P1_MAXPROC; i++) if (!contexts[i].isAllocated) {
 		contexts[i].isAllocated = TRUE;
 		*cid = i;
