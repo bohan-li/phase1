@@ -46,6 +46,7 @@ void P1ContextInit(void)
 }
 
 int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
+    checkIfKernelMode();
     int result = P1_SUCCESS;
     // find a free context and initialize it
     // allocate the stack, specify the startFunc, etc.
