@@ -16,8 +16,6 @@ typedef struct Context {
 
     int cid;
     void *stack;
-    USLOSS_PTE pageTable;
-    // you'll need more stuff here
 } Context;
 
 static Context   contexts[P1_MAXPROC];
@@ -85,7 +83,10 @@ int P1ContextSwitch(int cid) {
 
 int P1ContextFree(int cid) {
     int result = P1_SUCCESS;
-    if (currentCid >= P1_MAXPROC) return P1_TOO_MANY_PROCESSES;
+    if (cid < 0 || cid > currentCid) return P1_INVALID_CID;
+
+    free(contexts[cid].stack);
+    P3_FreePageTable(cid);
     return result;
 }
 
@@ -93,7 +94,7 @@ int P1ContextFree(int cid) {
 void 
 P1EnableInterrupts(void) 
 {
-    // set the interrupt bit in the PSR
+    USLOSS_PsrSet(USLOSS_PsrGet() | (1 << 1)); // set 2nd but of the psr to 1
 }
 
 /*
@@ -103,14 +104,19 @@ int
 P1DisableInterrupts(void) 
 {
     int enabled = FALSE;
-    // set enabled to TRUE if interrupts are already enabled
+    unsigned int psr = USLOSS_PsrGet();
+    enabled = (psr >> 1) & 1; // set enabled to TRUE if interrupts are already enabled
+    
+    unsigned int mask = 0xFFFFFFFF ^ (1 << 1); // all 1's except for 2nd bit
+    USLOSS_PsrSet(psr & mask);
+    
     // clear the interrupt bit in the PSR
     return enabled;
 }
 
 
 void checkIfKernelMode(){
-    if (USLOSS_PsrGet() != 1) {
+    if (USLOSS_PsrGet() & 1 != 1) {
         printf("The OS must be in kernel mode!");
         USLOSS_Halt(1);
     }
