@@ -58,20 +58,13 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
 		return P1_TOO_MANY_CONTEXTS;
 	}
 	contexts[i].startFunc = func;
-	printf("%d----%d\n", result,12121212);
 	contexts[i].startArg = arg;
-	printf("%d----%d\n", result,121212333);
 	// above this line, all is correct
-	printf("%d----%d\n", stacksize,121212333);
-	char stack[2345];  // there is somethign wrong this line
-	printf("%d----%d\n", stacksize,2343);
+	char *stack = malloc(stacksize * sizeof(char));  
 	if (stacksize < USLOSS_MIN_STACK){
 		return P1_INVALID_STACK;
 	}
-	printf("%d----%d\n", stacksize,12132);
-	printf("%d----%d\n", stacksize,814);
 	USLOSS_Context new;
-	printf("%d----%d\n", stacksize,889);
 	USLOSS_ContextInit(&new , stack, stacksize, NULL, launch);
 	printf("%d----%d\n", stacksize,890);
 	//USLOSS_ContextSwitch(contexts[i]->Context, &new);
