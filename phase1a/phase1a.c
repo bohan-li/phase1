@@ -50,12 +50,24 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
     int result = P1_SUCCESS;
     // find a free context and initialize it
     // allocate the stack, specify the startFunc, etc.
-	int i;
-	for (i = 0; i < P1_MAXPROC; i++){
-		
-	}
-	
-	
+    int i;
+    for (i = 0; i < P1_MAXPROC; i++){
+        if (contexts[i].startFunc == NULL){
+            break;
+        }
+    }
+    if (i == P1_MAXPROC){
+        return P1_TOO_MANY_CONTEXTS;
+    }
+    contexts[i].startFunc = func;
+    contexts[i].startArg = arg;
+    char stack0[stacksize];
+    if (stacksize < USLOSS_MIN_STACK){
+        return P1_INVALID_STACK;
+    }
+    USLOSS_Context new;
+    USLOSS_ContextInit(&new , stack0, sizeof(stack0), NULL, launch);
+    //USLOSS_ContextSwitch(contexts[i].Context, new);
     return result;
 }
 
