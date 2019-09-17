@@ -14,15 +14,13 @@ typedef struct Context {
     void            (*startFunc)(void *);
     void            *startArg;
     USLOSS_Context  context;
-
-    int cid;
     void *stack;
 } Context;
 
 static Context   contexts[P1_MAXPROC];
 
 static int currentCid = -1;
-static int numContexts = 0;
+static int numContexts = 0; // number of allocated contexts
 
 /*
  * Helper function to call func passed to P1ContextCreate with its arg.
@@ -36,54 +34,50 @@ static void launch(void)
 void P1ContextInit(void)
 {
     checkIfKernelMode();
+    currentCid = -1;
+    numContexts = 0;
 	int i;
 	for (i = 0; i < P1_MAXPROC; i++){
 		contexts[i].startFunc = NULL;
 		contexts[i].startArg = NULL;
-        contexts[i].cid = -1;
+        contexts[i].stack = NULL;
 	}
 }
 
 int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
     int result = P1_SUCCESS;
+
     // find a free context and initialize it
-    // allocate the stack, specify the startFunc, etc.
-	int i;
-	for (i = 0; i < P1_MAXPROC; i++){
-		if (contexts[i].startFunc == NULL){
-			break;
-		}
-	}
-	if (i == P1_MAXPROC){
-		return P1_TOO_MANY_CONTEXTS;
-	}
-	contexts[i].startFunc = func;
-	contexts[i].startArg = arg;
-	// above this line, all is correct
-	char *stack = malloc(stacksize * sizeof(char));  
-	if (stacksize < USLOSS_MIN_STACK){
-		return P1_INVALID_STACK;
-	}
+    *cid = numContexts;  
+	contexts[*cid].startFunc = func;
+	contexts[*cid].startArg = arg;
+
+    // allocate stack
+    if (stacksize < USLOSS_MIN_STACK) return P1_INVALID_STACK;
+	char *stack = malloc(stacksize * sizeof(char));
+    contexts[*cid].stack = stack;
+
 	USLOSS_Context new;
-	USLOSS_ContextInit(&new , stack, stacksize, NULL, launch);
-	P3_AllocatePageTable(*cid);
-	printf("%d----%d\n", stacksize,890);
-	//USLOSS_ContextSwitch(contexts[i]->Context, &new);
+	USLOSS_ContextInit(&new , stack, stacksize, P3_AllocatePageTable(*cid), &launch);
+    contexts[*cid].context = new;
+    numContexts++;
     return result;
+}
 
 int P1ContextSwitch(int cid) {
     int result = P1_SUCCESS;
-    if (cidIsValid(cid)) return P1_INVALID_CID;
+    if (!cidIsValid(cid)) return P1_INVALID_CID;
 
     USLOSS_Context *oldContext = cidIsValid(currentCid) ? &(contexts[currentCid].context) : NULL;
-    USLOSS_ContextSwitch(oldContext, &(contexts[cid].context));
     currentCid = cid;
+    USLOSS_ContextSwitch(oldContext, &(contexts[cid].context));
+
     return result;
 }
 
 int P1ContextFree(int cid) {
     int result = P1_SUCCESS;
-    if (cidIsValid(cid)) return P1_INVALID_CID;
+    if (!cidIsValid(cid)) return P1_INVALID_CID;
 
     free(contexts[cid].stack);
     P3_FreePageTable(cid);
