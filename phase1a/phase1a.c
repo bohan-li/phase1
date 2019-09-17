@@ -46,28 +46,34 @@ void P1ContextInit(void)
 }
 
 int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
-    checkIfKernelMode();
     int result = P1_SUCCESS;
     // find a free context and initialize it
     // allocate the stack, specify the startFunc, etc.
-    int i;
-    for (i = 0; i < P1_MAXPROC; i++){
-        if (contexts[i].startFunc == NULL){
-            break;
-        }
-    }
-    if (i == P1_MAXPROC){
-        return P1_TOO_MANY_CONTEXTS;
-    }
-    contexts[i].startFunc = func;
-    contexts[i].startArg = arg;
-    char stack0[stacksize];
-    if (stacksize < USLOSS_MIN_STACK){
-        return P1_INVALID_STACK;
-    }
-    USLOSS_Context new;
-    USLOSS_ContextInit(&new , stack0, sizeof(stack0), NULL, launch);
-    //USLOSS_ContextSwitch(contexts[i].Context, new);
+	int i;
+	for (i = 0; i < P1_MAXPROC; i++){
+		if (contexts[i].startFunc == NULL){
+			break;
+		}
+	}
+	if (i == P1_MAXPROC){
+		return P1_TOO_MANY_CONTEXTS;
+	}
+	contexts[i].startFunc = func;
+	printf("%d----%d\n", result,12121212);
+	contexts[i].startArg = arg;
+	printf("%d----%d\n", result,121212333);
+	// below this line, all is correct
+	char stack0[stacksize];  // there is somethign wrong this line
+	printf("%d----%d\n", result,813);
+	if (stacksize < USLOSS_MIN_STACK){
+		return P1_INVALID_STACK;
+	}
+	printf("%d----%d\n", result,814);
+	USLOSS_Context new;
+	printf("%d----%d\n", result,889);
+	USLOSS_ContextInit(&new , stack0, sizeof(stack0), NULL, launch);
+	printf("%d----%d\n", result,890);
+	//USLOSS_ContextSwitch(contexts[i]->Context, &new);
     return result;
 }
 
