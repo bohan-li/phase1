@@ -47,6 +47,7 @@ void P1ContextInit(void)
 int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
     int result = P1_SUCCESS;
 
+    if (numContexts >= P1_MAXPROC) return P1_TOO_MANY_CONTEXTS;
     // find a free context and initialize it
     *cid = numContexts;  
 	contexts[*cid].startFunc = func;
