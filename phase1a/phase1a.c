@@ -11,10 +11,10 @@ void checkIfKernelMode();
 int cidIsValid(int cid);
 
 typedef struct Context {
-    void            (*startFunc)(void *);
-    void            *startArg;
-    USLOSS_Context  context;
-    void *stack;
+	void            (*startFunc)(void *);
+	void            *startArg;
+	USLOSS_Context  context;
+	void *stack;
 	int isAllocated;
 } Context;
 
@@ -37,13 +37,13 @@ static void launch(void)
  */
 void P1ContextInit(void)
 {
-    checkIfKernelMode();
-    currentCid = -1;
+	checkIfKernelMode();
+	currentCid = -1;
 	int i;
 	for (i = 0; i < P1_MAXPROC; i++){
 		contexts[i].startFunc = NULL;
 		contexts[i].startArg = NULL;
-        contexts[i].stack = NULL;
+		contexts[i].stack = NULL;
 		contexts[i].isAllocated = FALSE;
 	}
 }
@@ -63,20 +63,19 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
 		*cid = i;
 		break;
 	}
-    if (i == P1_MAXPROC) return P1_TOO_MANY_CONTEXTS;
+	if (i == P1_MAXPROC) return P1_TOO_MANY_CONTEXTS;
 
 	contexts[*cid].startFunc = func;
 	contexts[*cid].startArg = arg;
 
     // allocate stack
-    if (stacksize < USLOSS_MIN_STACK) return P1_INVALID_STACK;
+	if (stacksize < USLOSS_MIN_STACK) return P1_INVALID_STACK;
 	void *stack = malloc(stacksize);
-    contexts[*cid].stack = stack;
-
+	contexts[*cid].stack = stack;
 	USLOSS_Context new;
 	USLOSS_ContextInit(&new , stack, stacksize, P3_AllocatePageTable(*cid), &launch);
-    contexts[*cid].context = new;
-    return result;
+	contexts[*cid].context = new;
+	return result;
 }
 
 /*
@@ -84,34 +83,33 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
  * and P1_SUCCESS if the switch was successful.
  */
 int P1ContextSwitch(int cid) {
-    int result = P1_SUCCESS;
-    if (!cidIsValid(cid)) return P1_INVALID_CID;
+	int result = P1_SUCCESS;
+	if (!cidIsValid(cid)) return P1_INVALID_CID;
 
-    USLOSS_Context *oldContext = cidIsValid(currentCid) ? &(contexts[currentCid].context) : NULL;
-    currentCid = cid;
-    USLOSS_ContextSwitch(oldContext, &(contexts[cid].context));
+	USLOSS_Context *oldContext = cidIsValid(currentCid) ? &(contexts[currentCid].context) : NULL;
+	currentCid = cid;
+	USLOSS_ContextSwitch(oldContext, &(contexts[cid].context));
 
-    return result;
+	return result;
 }
 
 /*
  * Frees the context indicated by the cid of all memory.
  */
 int P1ContextFree(int cid) {
-    int result = P1_SUCCESS;
-    if (!cidIsValid(cid)) return P1_INVALID_CID;
-
+	int result = P1_SUCCESS;
+	if (!cidIsValid(cid)) return P1_INVALID_CID;
 	contexts[cid].isAllocated = FALSE;
-    free(contexts[cid].stack);
-    P3_FreePageTable(cid);
-    return result;
+	free(contexts[cid].stack);
+	P3_FreePageTable(cid);
+	return result;
 }
 
 void 
 P1EnableInterrupts(void) 
 {
-    int rc = USLOSS_PsrSet(USLOSS_PsrGet() | (1 << 1)); // set 2nd but of the psr to 1
-    assert(rc == USLOSS_DEV_OK);
+	int rc = USLOSS_PsrSet(USLOSS_PsrGet() | (1 << 1)); // set 2nd but of the psr to 1
+	assert(rc == USLOSS_DEV_OK);
 }
 
 /*
@@ -120,15 +118,15 @@ P1EnableInterrupts(void)
 int 
 P1DisableInterrupts(void) 
 {
-    int enabled = FALSE;
-    unsigned int psr = USLOSS_PsrGet();
-    enabled = (psr >> 1) & 1; // set enabled to TRUE if interrupts are already enabled
+	int enabled = FALSE;
+	unsigned int psr = USLOSS_PsrGet();
+	enabled = (psr >> 1) & 1; // set enabled to TRUE if interrupts are already enabled
     
-    unsigned int mask = 0xFFFFFFFF ^ (1 << 1); // all 1's except for 2nd bit
-    int rc = USLOSS_PsrSet(psr & mask); // clear the interrupt bit in the PSR
-    assert(rc == USLOSS_DEV_OK);
+	unsigned int mask = 0xFFFFFFFF ^ (1 << 1); // all 1's except for 2nd bit
+	int rc = USLOSS_PsrSet(psr & mask); // clear the interrupt bit in the PSR
+	assert(rc == USLOSS_DEV_OK);
 
-    return enabled;
+	return enabled;
 }
 
 /*
@@ -136,12 +134,12 @@ P1DisableInterrupts(void)
  * is the LSB.
  */
 void checkIfKernelMode(){
-    if ((USLOSS_PsrGet() & 1) != 1) {
-        printf("The OS must be in kernel mode!");
-        USLOSS_Halt(1);
+	if ((USLOSS_PsrGet() & 1) != 1) {
+		USLOSS_Console("The OS must be in kernel mode!");
+		USLOSS_Halt(1);
     }
 }
 
 int cidIsValid(int cid) {
-    return cid >= 0 && cid < P1_MAXPROC && contexts[cid].isAllocated;
+	return cid >= 0 && cid < P1_MAXPROC && contexts[cid].isAllocated;
 }
