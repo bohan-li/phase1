@@ -22,10 +22,10 @@ startup(int argc, char **argv)
     assert(rc == P1_SUCCESS);
     rc = P1ContextSwitch(cid);
     // should not return
-    assert(rc == P1_SUCCESS);
+    assert(rc != P1_SUCCESS);
 	P1ContextFree(cid);
 	P1ContextFree(cid); // free twice for the single tests
-    assert(0);
+    USLOSS_Halt(0);
 }
 
 void test_setup(int argc, char **argv) {}
