@@ -14,7 +14,7 @@ typedef struct Context {
     void            (*startFunc)(void *);
     void            *startArg;
     USLOSS_Context  context;
-    void *stack;
+    char *stack;
 	int isAllocated;
 } Context;
 
@@ -62,7 +62,7 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
 
     // allocate stack
     if (stacksize < USLOSS_MIN_STACK) return P1_INVALID_STACK;
-	char *stack = malloc(stacksize * sizeof(char));
+	char *stack = (char *) malloc(stacksize * sizeof(char));
     contexts[*cid].stack = stack;
 
 	USLOSS_Context new;
