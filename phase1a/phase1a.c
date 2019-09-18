@@ -14,7 +14,7 @@ typedef struct Context {
     void            (*startFunc)(void *);
     void            *startArg;
     USLOSS_Context  context;
-    char *stack;
+    void *stack;
 	int isAllocated;
 } Context;
 
@@ -45,10 +45,9 @@ void P1ContextInit(void)
 }
 
 int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
-        int result = P1_SUCCESS;
+	int result = P1_SUCCESS;
 	int i;
 	// find a free context and initialize it
-	//if (!cidIsValid(*cid)) return P1_INVALID_CID; // if add this line, an error occured
 	for (i = 0; i < P1_MAXPROC; i++) if (!contexts[i].isAllocated) {
 		contexts[i].isAllocated = TRUE;
 		*cid = i;
@@ -56,13 +55,12 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
 	}
     if (i == P1_MAXPROC) return P1_TOO_MANY_CONTEXTS;
 
-
 	contexts[*cid].startFunc = func;
 	contexts[*cid].startArg = arg;
 
     // allocate stack
     if (stacksize < USLOSS_MIN_STACK) return P1_INVALID_STACK;
-	char *stack = (char *) malloc(stacksize * sizeof(char));
+	void *stack = malloc(stacksize);
     contexts[*cid].stack = stack;
 
 	USLOSS_Context new;
