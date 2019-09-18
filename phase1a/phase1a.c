@@ -31,6 +31,10 @@ static void launch(void)
     contexts[currentCid].startFunc(contexts[currentCid].startArg);
 }
 
+/*
+ * Initializes phase1 module. Must be called before all other functions
+ * in the module.
+ */
 void P1ContextInit(void)
 {
     checkIfKernelMode();
@@ -44,6 +48,12 @@ void P1ContextInit(void)
 	}
 }
 
+/*
+ * Creates a context for phase1, allocating all memory necessary.
+ * Returns P1_TOO_MANY_CONTEXTS if there is already too many contexts.
+ * Returns P1_INVALID_STACK for a stack size that is too small.
+ * The cid field is updated to contain the cid assigned to the context.
+ */
 int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
 	int result = P1_SUCCESS;
 	int i;
@@ -69,6 +79,10 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
     return result;
 }
 
+/*
+ * Switches to the context indicated by cid, returning P1_INVALID_CID for invalid cid's
+ * and P1_SUCCESS if the switch was successful.
+ */
 int P1ContextSwitch(int cid) {
     int result = P1_SUCCESS;
     if (!cidIsValid(cid)) return P1_INVALID_CID;
@@ -80,6 +94,9 @@ int P1ContextSwitch(int cid) {
     return result;
 }
 
+/*
+ * Frees the context indicated by the cid of all memory.
+ */
 int P1ContextFree(int cid) {
     int result = P1_SUCCESS;
     if (!cidIsValid(cid)) return P1_INVALID_CID;
@@ -89,7 +106,6 @@ int P1ContextFree(int cid) {
     P3_FreePageTable(cid);
     return result;
 }
-
 
 void 
 P1EnableInterrupts(void) 
