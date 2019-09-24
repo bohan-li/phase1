@@ -171,13 +171,6 @@ P1_GetProcInfo(int pid, P1_ProcInfo *info)
  * Checks psr to make sure OS is in kernel mode, halting USLOSS if not. Mode bit
  * is the LSB.
  */
-void checkIfKernelMode(){
-    if ((USLOSS_PsrGet() & 1) != 1) {
-        USLOSS_Console("The OS must be in kernel mode!");
-        USLOSS_Halt(1);
-    }
-}
-
 void checkIfIsKernel(){ 
 	if ((USLOSS_PsrGet() & 1) != 1) {
 		USLOSS_Console("The OS must be in kernel mode!");
