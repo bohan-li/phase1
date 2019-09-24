@@ -55,6 +55,7 @@ void P1ContextInit(void)
  * The cid field is updated to contain the cid assigned to the context.
  */
 int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
+	checkIfKernelMode();
 	int result = P1_SUCCESS;
 	int i;
 	// find a free context and initialize it
@@ -83,6 +84,7 @@ int P1ContextCreate(void (*func)(void *), void *arg, int stacksize, int *cid) {
  * and P1_SUCCESS if the switch was successful.
  */
 int P1ContextSwitch(int cid) {
+	checkIfKernelMode();
 	int result = P1_SUCCESS;
 	if (!cidIsValid(cid)) return P1_INVALID_CID;
 
@@ -97,6 +99,7 @@ int P1ContextSwitch(int cid) {
  * Frees the context indicated by the cid of all memory.
  */
 int P1ContextFree(int cid) {
+	checkIfKernelMode();
 	int result = P1_SUCCESS;
 	if (!cidIsValid(cid)) return P1_INVALID_CID;
 	contexts[cid].isAllocated = FALSE;
@@ -108,6 +111,7 @@ int P1ContextFree(int cid) {
 void 
 P1EnableInterrupts(void) 
 {
+	checkIfKernelMode();
 	int rc = USLOSS_PsrSet(USLOSS_PsrGet() | (1 << 1)); // set 2nd but of the psr to 1
 	assert(rc == USLOSS_DEV_OK);
 }
@@ -118,6 +122,7 @@ P1EnableInterrupts(void)
 int 
 P1DisableInterrupts(void) 
 {
+	checkIfKernelMode();
 	int enabled = FALSE;
 	unsigned int psr = USLOSS_PsrGet();
 	enabled = (psr >> 1) & 1; // set enabled to TRUE if interrupts are already enabled
