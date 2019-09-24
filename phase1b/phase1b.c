@@ -11,21 +11,21 @@ Phase 1b
 
 
 typedef struct PCB {
-	int					cid;                // context's ID
-	int					cpuTime;            // process's running time
-	char				name[P1_MAXNAME+1]; // process's name
-	int					priority;           // process's priority
-	P1_State			state;              // state of the PCB
+	int            cid;                // context's ID
+	int            cpuTime;            // process's running time
+	char           name[P1_MAXNAME+1]; // process's name
+	int            priority;           // process's priority
+	P1_State       state;              // state of the PCB
 	// more fields here
-	int					initialize; // 
-	int					(*startFunc)(void *);
-	void				*startArg;
-	void				*stack;
-	USLOSS_Context		context;
+	int            initialize; // 
+	int            (*startFunc)(void *);
+	void           *startArg;
+	void           *stack;
+	USLOSS_Context context;
 } PCB;
 
 static PCB processTable[P1_MAXPROC];   // the process table
-static int currentCid = -1;
+static int currentPid = -1;
 void checkIfIsKernel();
 static void launch(void);
 extern  USLOSS_PTE	*P3_AllocatePageTable(int cid);
@@ -48,7 +48,7 @@ void P1ProcInit(void)
 
 int P1_GetPid(void) 
 {
-	return 0;
+	return currentPid;
 }
 
 int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priority, int tag, int *pid ) 
@@ -149,8 +149,21 @@ int
 P1_GetProcInfo(int pid, P1_ProcInfo *info)
 {
     int         result = P1_SUCCESS;
+	if (pid < 0 || pid >= P1_MAXPROC){
+		return P1_INVALID_PID;
+	}
     // fill in info here
-    return result;
+	strcpy(info->name, processTable[pid].name);
+	info->state = processTable[pid].state;       // process's state
+	//info->sid // semaphore on which process is blocked, if any
+	info->priority = processTable[pid].priority; // process's priority
+	//info->tag = processTable[pid].tag;           // process's tag
+    //info->cpu                                  // CPU consumed (in us)
+    //info->parent;                              // parent PID
+    //info->children[P1_MAXPROC];                // childen PIDs
+    //info->numChildren;                         // # of children
+
+   return result;
 }
 
 
@@ -164,7 +177,7 @@ void checkIfIsKernel(){
 
 static void launch(void)
 {
-	assert(processTable[currentCid].startFunc != NULL);
-	processTable[currentCid].startFunc(processTable[currentCid].startArg);
+	assert(processTable[currentPid].startFunc != NULL);
+	processTable[currentPid].startFunc(processTable[currentPid].startArg);
 }
 
