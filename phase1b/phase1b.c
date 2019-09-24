@@ -18,11 +18,18 @@ typedef struct PCB {
     P1_State        state;              // state of the PCB
     // more fields here
 	int				initialize; // 
+	int           (*startFunc)(void *);
+	void            *startArg;
+	void 			*stack;
+	USLOSS_Context  context;
 } PCB;
 
 static PCB processTable[P1_MAXPROC];   // the process table
-
+static int currentCid = -1;
 void checkIfIsKernel();
+static void launch(void);
+extern  USLOSS_PTE  *P3_AllocatePageTable(int cid);
+extern  void        P3_FreePageTable(int cid);
 
 
 void P1ProcInit(void)
@@ -72,29 +79,31 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
     // create a context using P1ContextCreate
 	int i;
 	// find a free context and initialize it
-	for (i = 0; i < P1_MAXPROC; i++) if (!contexts[i].isAllocated) {
-		contexts[i].isAllocated = TRUE;
-		*cid = i;
-		break;
+	for (i = 0; i < P1_MAXPROC; i++){
+		if (strcmp(processTable[i].name, name) == 0){
+			return P1_DUPLICATE_NAME;
+		}	
+		if (processTable[i].initialize) {
+			processTable[i].initialize = 0;
+			*pid = i;
+			break;
+		}
 	}
 	if (i == P1_MAXPROC) return P1_TOO_MANY_PROCESSES;
-
-	contexts[*cid].startFunc = func;
-	contexts[*cid].startArg = arg;
+	// allocate and initialize PCB
+	processTable[*pid].startFunc = func;
+	processTable[*pid].startArg = arg;
 
     // allocate stack
-	if (stacksize < USLOSS_MIN_STACK) return P1_INVALID_STACK;
 	void *stack = malloc(stacksize);
-	contexts[*cid].stack = stack;
+	processTable[*pid].stack = stack;
 	USLOSS_Context new;
-	USLOSS_ContextInit(&new , stack, stacksize, P3_AllocatePageTable(*cid), &launch);
-	contexts[*cid].context = new;
-	
-	
-    // allocate and initialize PCB
+	USLOSS_ContextInit(&new , stack, stacksize, P3_AllocatePageTable(*pid), &launch);
+	processTable[*pid].context = new;
     // if this is the first process or this process's priority is higher than the 
     //    currently running process call P1Dispatch(FALSE)
     // re-enable interrupts if they were previously enabled
+	P1EnableInterrupts();
     return result;
 }
 
@@ -153,5 +162,9 @@ void checkIfIsKernel(){
     }
 }
 
-
+static void launch(void)
+{
+    assert(processTable[currentCid].startFunc != NULL);
+    processTable[currentCid].startFunc(processTable[currentCid].startArg);
+}
 
