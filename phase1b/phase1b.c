@@ -11,17 +11,17 @@ Phase 1b
 
 
 typedef struct PCB {
-	int				cid;                // context's ID
-	int				cpuTime;            // process's running time
-	char			name[P1_MAXNAME+1]; // process's name
-	int				priority;           // process's priority
-	P1_State		state;              // state of the PCB
+	int					cid;                // context's ID
+	int					cpuTime;            // process's running time
+	char				name[P1_MAXNAME+1]; // process's name
+	int					priority;           // process's priority
+	P1_State			state;              // state of the PCB
 	// more fields here
-	int				initialize; // 
-	int				(*startFunc)(void *);
-	void			*startArg;
-	void			*stack;
-	USLOSS_Context	context;
+	int					initialize; // 
+	int					(*startFunc)(void *);
+	void				*startArg;
+	void				*stack;
+	USLOSS_Context		context;
 } PCB;
 
 static PCB processTable[P1_MAXPROC];   // the process table
