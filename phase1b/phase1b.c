@@ -82,8 +82,8 @@ int P1_GetPid(void)
  */
 static void launch(void *arg)
 {
-    processTable[currentPid].startFunc(processTable[currentPid].startArg);
-    P1_Quit(0);
+    int status = processTable[currentPid].startFunc(processTable[currentPid].startArg);
+    P1_Quit(status);
 }
 
 int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priority, int tag, int *pid ) 
@@ -129,7 +129,7 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
 	if (i == P1_MAXPROC) return P1_TOO_MANY_PROCESSES;
 
 	*pid = i;
-	P1ContextCreate(func, arg, stacksize, &processTable[*pid].cid);
+	P1ContextCreate(launch, arg, stacksize, &processTable[*pid].cid);
 	processTable[*pid].startFunc = func;
 	processTable[*pid].startArg = arg;
 	processTable[*pid].priority = priority;
@@ -137,11 +137,12 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
 	processTable[*pid].parent = currentPid;
 	processTable[*pid].childrenHead = (ChildNode *) malloc(sizeof(ChildNode));
 	processTable[*pid].childrenHead -> next = NULL;
+	processTable[*pid].numChildren = 0;
 	processTable[*pid].quitChildrenHead = (ChildNode *) malloc(sizeof(ChildNode));
 	processTable[*pid].quitChildrenHead -> next = NULL;
+	processTable[*pid].numChildrenQuit = 0;
 	if (currentPid != -1) {
 		addToHead(processTable[currentPid].childrenHead, *pid, 0, &processTable[currentPid].numChildren);
-		processTable[currentPid].numChildren++;
 	}
 	strncpy(processTable[*pid].name, name, P1_MAXNAME + 1);
 
@@ -179,7 +180,7 @@ P1_Quit(int status)
     	ChildNode *temp = processTable[currentPid].childrenHead;
     	while (temp -> next != NULL) {
     		addToHead(processTable[firstProcess].childrenHead, temp -> next -> pid, temp -> next -> status, &processTable[firstProcess].numChildren);
-    		if (processTable[temp -> next -> pid].state = P1_STATE_QUIT) 
+    		if (processTable[temp -> next -> pid].state == P1_STATE_QUIT) 
     			addToHead(processTable[firstProcess].quitChildrenHead, temp -> next -> pid, temp -> next -> status, &processTable[firstProcess].numChildrenQuit);
     	}
     }
@@ -269,7 +270,7 @@ P1SetState(int pid, P1_State state, int sid)
     		insertIntoRunnableQueue(pid);
     		break;
     	case P1_STATE_JOINING:
-    		// child handling
+			if (processTable[pid].numChildrenQuit != 0) return P1_CHILD_QUIT;
     		break;
     	case P1_STATE_BLOCKED:
     		processTable[pid].sid = sid;
@@ -311,19 +312,23 @@ P1_GetProcInfo(int pid, P1_ProcInfo *info)
 	// check for kernel mode
 	checkIfIsKernel();
     int result = P1_SUCCESS;
-	if (pid < 0 || pid >= P1_MAXPROC){
+	if (!pidIsValid(pid)){
 		return P1_INVALID_PID;
 	}
     // fill in info here
 	strcpy(info->name, processTable[pid].name);
 	info->state = processTable[pid].state;       // process's state
-	//info->sid // semaphore on which process is blocked, if any
+	info->sid = processTable[pid].sid;			 // semaphore on which process is blocked, if any
 	info->priority = processTable[pid].priority; // process's priority
-	//info->tag = processTable[pid].tag;           // process's tag
+	info->tag = processTable[pid].tag;           // process's tag
     //info->cpu                                  // CPU consumed (in us)
-    //info->parent;                              // parent PID
-    //info->children[P1_MAXPROC];                // childen PIDs
-    //info->numChildren;                         // # of children
+    info->parent = processTable[pid].parent;     // parent PID
+
+	int i = 0;
+	for (ChildNode *child = processTable[pid].childrenHead; child->next != NULL; child = child->next) {
+		info->children[i++] = child->pid;
+	}
+    info->numChildren = processTable[pid].numChildren;
 
    return result;
 }
@@ -504,5 +509,6 @@ ChildrenIndices getChildrenIndices(int index) {
 	}
 	children.left = leftChild;
 	children.right = rightChild;
+	return children;
 }
 
