@@ -9,6 +9,7 @@ Phase 1b
 #include <assert.h>
 #include <stdio.h>
 
+
 typedef struct PCB {
     int             cid;                // context's ID
     int             cpuTime;            // process's running time
@@ -16,14 +17,25 @@ typedef struct PCB {
     int             priority;           // process's priority
     P1_State        state;              // state of the PCB
     // more fields here
+	int				initialize; // 
 } PCB;
 
 static PCB processTable[P1_MAXPROC];   // the process table
+
+void checkIfIsKernel();
+
 
 void P1ProcInit(void)
 {
     P1ContextInit();
     // initialize everything including the processTable
+	int i;
+	for (i = 0; i < P1_MAXPROC; i++){
+		processTable[i].cid = 0;
+		processTable[i].cpuTime = 0;
+		processTable[i].priority = 0;
+		processTable[i].initialize = 1;
+	}
 
 }
 
@@ -37,9 +49,48 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
     int result = P1_SUCCESS;
 
     // check for kernel mode
+	checkIfIsKernel();
     // disable interrupts
+	P1DisableInterrupts();
     // check all parameters
+	if (name == NULL){
+		return P1_NAME_IS_NULL;
+	}
+	int len = strlen(name);
+	if (len > P1_MAXNAME){
+		return P1_NAME_TOO_LONG;
+	}
+	if (priority < 1 || priority > 6){
+		return P1_INVALID_PRIORITY;
+	}
+	if (tag != 1 && tag != 0){
+		return P1_INVALID_TAG;
+	}
+	if (stacksize < USLOSS_MIN_STACK){
+		return P1_INVALID_STACK;
+	}
     // create a context using P1ContextCreate
+	int i;
+	// find a free context and initialize it
+	for (i = 0; i < P1_MAXPROC; i++) if (!contexts[i].isAllocated) {
+		contexts[i].isAllocated = TRUE;
+		*cid = i;
+		break;
+	}
+	if (i == P1_MAXPROC) return P1_TOO_MANY_PROCESSES;
+
+	contexts[*cid].startFunc = func;
+	contexts[*cid].startArg = arg;
+
+    // allocate stack
+	if (stacksize < USLOSS_MIN_STACK) return P1_INVALID_STACK;
+	void *stack = malloc(stacksize);
+	contexts[*cid].stack = stack;
+	USLOSS_Context new;
+	USLOSS_ContextInit(&new , stack, stacksize, P3_AllocatePageTable(*cid), &launch);
+	contexts[*cid].context = new;
+	
+	
     // allocate and initialize PCB
     // if this is the first process or this process's priority is higher than the 
     //    currently running process call P1Dispatch(FALSE)
@@ -95,7 +146,12 @@ P1_GetProcInfo(int pid, P1_ProcInfo *info)
 
 
 
-
+void checkIfIsKernel(){ 
+	if ((USLOSS_PsrGet() & 1) != 1) {
+		USLOSS_Console("The OS must be in kernel mode!");
+		USLOSS_Halt(1);
+    }
+}
 
 
 
