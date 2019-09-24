@@ -9,6 +9,11 @@ Phase 1b
 #include <assert.h>
 #include <stdio.h>
 
+typedef struct ChildNode {
+	int pid;
+	int status;
+	struct ChildNode *next;
+} ChildNode;
 
 typedef struct PCB {
     int             cid;                // context's ID
@@ -17,39 +22,52 @@ typedef struct PCB {
     int             priority;           // process's priority
     P1_State        state;              // state of the PCB
     // more fields here
-    int 			initialize;
     int				(*startFunc)(void *);
 	void			*startArg;
 	int 			tag;
+	ChildNode 		*childrenHead;
+	int 			numChildren;
+	ChildNode		*quitChildrenHead;
+	int 			numChildrenQuit;
+	int 			parent;
+	int 			sid;
 } PCB;
+
+static int firstProcess = -1;
 
 static PCB processTable[P1_MAXPROC];   // the process table
 static int currentPid = -1;
 
 void checkIfIsKernel();
+int pidIsValid(int pid);
+int addToHead(ChildNode *head, int pid, int status);
 static void launch(void *arg);
 extern  USLOSS_PTE  *P3_AllocatePageTable(int cid);
 extern  void        P3_FreePageTable(int cid);
 
 static int priorityQueue[P1_MAXPROC]; // heap of pid's
 static int queueSize = 0;
-// basic functionality methods
-int removeMax();
-void insert(int pid);
+
+// basic heap functionality methods
+int removeMaxPriority();
+void insertIntoRunnableQueue(int pid);
+void removeElementFromQueue(int element);
 
 void P1ProcInit(void)
 {
+	checkIfIsKernel();
     P1ContextInit();
     // initialize everything including the processTable
     currentPid = -1;
     queueSize = 0;
+    firstProcess = -1;
 
 	int i;
 	for (i = 0; i < P1_MAXPROC; i++){
 		processTable[i].cid = 0;
 		processTable[i].cpuTime = 0;
 		processTable[i].priority = 0;
-		processTable[i].initialize = 1;
+		processTable[i].state = P1_STATE_FREE;
 	}
 
 }
@@ -86,7 +104,7 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
 	if (len > P1_MAXNAME){
 		return P1_NAME_TOO_LONG;
 	}
-	if (priority < 1 || priority > 6){
+	if (priority < 1 || priority > 6 || (priority == 6 && firstProcess != -1)){
 		return P1_INVALID_PRIORITY;
 	}
 	if (tag != 1 && tag != 0){
@@ -102,8 +120,8 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
 		if (strcmp(processTable[i].name, name) == 0){
 			return P1_DUPLICATE_NAME;
 		}	
-		if (processTable[i].initialize) {
-			processTable[i].initialize = 0;
+		if (processTable[i].state == P1_STATE_FREE) {
+			P1SetState(i, P1_STATE_READY, 0);
 			*pid = i;
 			break;
 		}
@@ -114,10 +132,27 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
 	P1ContextCreate(func, arg, stacksize, &processTable[*pid].cid);
 	processTable[*pid].startFunc = func;
 	processTable[*pid].startArg = arg;
+	processTable[*pid].priority = priority;
+	processTable[*pid].tag = tag;
+	processTable[*pid].parent = currentPid;
+	processTable[*pid].childrenHead = (ChildNode *) malloc(sizeof(ChildNode));
+	processTable[*pid].childrenHead -> next = NULL;
+	processTable[*pid].quitChildrenHead = (ChildNode *) malloc(sizeof(ChildNode));
+	processTable[*pid].quitChildrenHead -> next = NULL;
+	if (currentPid != -1) {
+		addToHead(processTable[currentPid].childrenHead, *pid, 0);
+		processTable[currentPid].numChildren++;
+	}
 	strncpy(processTable[*pid].name, name, P1_MAXNAME + 1);
+
+	insertIntoRunnableQueue(*pid);
 
     // if this is the first process or this process's priority is higher than the 
     //    currently running process call P1Dispatch(FALSE)
+    int isFirstFork = firstProcess == -1;
+    if (isFirstFork) firstProcess = *pid;
+	if (isFirstFork || priority > processTable[currentPid].priority) P1Dispatch(FALSE);
+
     // re-enable interrupts if they were previously enabled
 	if (interruptsWereEnabled) P1EnableInterrupts();
     return result;
@@ -126,10 +161,30 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
 void 
 P1_Quit(int status) 
 {
-    // check for kernel mode
+	// check for kernel mode
+	checkIfIsKernel();
     // disable interrupts
+    P1DisableInterrupts();
+
     // remove from ready queue, set status to P1_STATE_QUIT
-    // if first process verify it doesn't have children, otherwise give children to first process
+    removeElementFromQueue(currentPid);
+    processTable[currentPid].state = P1_STATE_QUIT;
+
+	// if first process verify it doesn't have children
+    if (currentPid == firstProcess ) {
+    	if (processTable[firstProcess].numChildren != 0) {
+    		USLOSS_Console("First process quitting with children, halting.");
+    		USLOSS_Halt(1);
+    	} 
+    } else { // otherwise give children to first process
+    	ChildNode *temp = processTable[currentPid].childrenHead;
+    	int added = 0, quitAdded = 0;
+    	while (temp -> next != NULL) {
+    		added += addToHead(processTable[firstProcess].childrenHead, temp -> next -> pid, temp -> next -> status);
+    		//if (processTable[temp -> next -> pid].state = P1_STATE_QUIT) quitAdded += 
+    	}
+    }
+
     // add ourself to list of our parent's children that have quit
     // if parent is in state P1_STATE_JOINING set its state to P1_STATE_READY
     P1Dispatch(FALSE);
@@ -137,34 +192,123 @@ P1_Quit(int status)
     assert(0);
 }
 
+void freeList(ChildNode *head) {
+	ChildNode *temp = head;
+	while (temp != NULL) {
+		ChildNode *current = temp;
+		temp = temp -> next;
+		free(current);
+	}
+}
+
+int removeElementFromList(ChildNode *head, int pid) {
+	ChildNode *temp = head;
+	int count = 0;
+	while (temp -> next != NULL) {
+		if (temp -> next -> pid == pid) {
+			ChildNode *found = temp -> next;
+			temp -> next = found -> next;
+			free(found);
+			count++;
+			continue;
+		}
+		temp = temp -> next;
+	}
+	return count;
+}
+
+void freeProcess(int pid) {
+	int interruptsWereEnabled = P1DisableInterrupts();
+	P1ContextFree(processTable[pid].cid);
+	freeList(processTable[pid].childrenHead);
+	freeList(processTable[pid].quitChildrenHead);
+	int parent = processTable[pid].parent;
+
+	int count;
+	count = removeElementFromList(processTable[parent].childrenHead, pid);
+	processTable[parent].numChildren -= count;
+	count = removeElementFromList(processTable[parent].quitChildrenHead, pid);
+	processTable[parent].numChildrenQuit -= count;
+
+	processTable[pid].state = P1_STATE_FREE;
+	if (interruptsWereEnabled) P1EnableInterrupts();
+}
 
 int 
-P1GetChildStatus(int tag, int *cpid, int *status) 
+P1GetChildStatus(int tag, int *pid, int *status) 
 {
-    int result = P1_SUCCESS;
-    // do stuff here
-    return result;
+	// check for kernel mode
+	checkIfIsKernel();
+
+    if (tag % 2 != tag) return P1_INVALID_TAG;
+
+    if (processTable[currentPid].numChildren == 0) return P1_NO_QUIT;
+
+    for (ChildNode *child = processTable[currentPid].quitChildrenHead; child -> next != NULL; child = child -> next) {
+    	if (processTable[child -> pid].tag == tag) {
+    		*pid = child -> pid;
+    		*status = child -> status;
+    		freeProcess(*pid);
+    		return P1_SUCCESS;
+    	}
+    }
+    return P1_NO_CHILDREN;
 }
 
 int
 P1SetState(int pid, P1_State state, int sid) 
 {
-    int result = P1_SUCCESS;
-    // do stuff here
+	// check for kernel mode
+	checkIfIsKernel();
+	if (!pidIsValid(pid)) return P1_INVALID_PID;
+
+   	int result = P1_SUCCESS;
+
+    switch(state) {
+    	case P1_STATE_READY:
+    		insertIntoRunnableQueue(pid);
+    		break;
+    	case P1_STATE_JOINING:
+    		// child handling
+    		break;
+    	case P1_STATE_BLOCKED:
+    		processTable[pid].sid = sid;
+    		break;
+    	case P1_STATE_QUIT: break;
+    	default: return P1_INVALID_STATE;
+    }
+    if (processTable[pid].state == P1_STATE_READY) removeElementFromQueue(pid);
+    processTable[pid].state = state;
     return result;
 }
 
 void
 P1Dispatch(int rotate)
 {
+	// check for kernel mode
+	checkIfIsKernel();
     // select the highest-priority runnable process
+    int highestPriorityProcess = priorityQueue[0];
+    if (highestPriorityProcess == -1) {
+    	USLOSS_Console("No runnable processes, halting.");
+    	USLOSS_Halt(0);
+    } else if (processTable[highestPriorityProcess].priority == processTable[currentPid].priority && !rotate) {
+    	return;
+    }
+    if (currentPid != -1) P1SetState(currentPid, P1_STATE_READY, 0);
+    currentPid = highestPriorityProcess;
+    processTable[currentPid].state = P1_STATE_RUNNING;
+    removeElementFromQueue(currentPid);
+    P1ContextSwitch(processTable[currentPid].cid);
     // call P1ContextSwitch to switch to that process
 }
 
 int
 P1_GetProcInfo(int pid, P1_ProcInfo *info)
 {
-    int         result = P1_SUCCESS;
+	// check for kernel mode
+	checkIfIsKernel();
+    int result = P1_SUCCESS;
 	if (pid < 0 || pid >= P1_MAXPROC){
 		return P1_INVALID_PID;
 	}
@@ -190,8 +334,27 @@ P1_GetProcInfo(int pid, P1_ProcInfo *info)
 void checkIfIsKernel(){ 
 	if ((USLOSS_PsrGet() & 1) != 1) {
 		USLOSS_Console("The OS must be in kernel mode!");
-		USLOSS_Halt(1);
+		USLOSS_IllegalInstruction();
     }
+}
+
+int pidIsValid(int pid) {
+	return pid >= 0 && pid < P1_MAXPROC && processTable[pid].state != P1_STATE_FREE;
+}
+
+int addToHead(ChildNode *head, int pid, int status) {
+	ChildNode *temp = head;
+	while (temp -> next != NULL) {
+		if (temp -> next -> pid == pid) return FALSE;
+	}
+
+	ChildNode *newNode = (ChildNode *) malloc(sizeof(ChildNode));
+	newNode -> pid = pid;
+	newNode -> status = status;
+	newNode -> next = NULL;
+
+	temp -> next = newNode;
+	return TRUE;
 }
 
 /************************************************************************************/
@@ -239,7 +402,7 @@ void swap(int index1, int index2) {
  * 
  * @return the pid with the highest priority, -1 if heap is empty
  */
-int removeMax() {
+int removeMaxPriority() {
 	if (queueSize == 0) return -1;
 	swap(0, --queueSize);
 	bubbleDown(0);
@@ -249,10 +412,20 @@ int removeMax() {
 /**
  * Inserts a pid into the heap.
  */
-void insert(int pid) {
+void insertIntoRunnableQueue(int pid) {
 	priorityQueue[queueSize] = pid;
 	bubbleUp(queueSize);
 	queueSize++;
+}
+
+void removeElementFromQueue(int element) {
+	int i;
+	for (i = 0; i < P1_MAXPROC; i++) {
+		if (priorityQueue[i] == element) break;
+	}
+	assert(i != P1_MAXPROC);
+	swap(i, --queueSize);
+	bubbleDown(i);
 }
 
 /**
