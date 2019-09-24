@@ -11,31 +11,31 @@ Phase 1b
 
 
 typedef struct PCB {
-    int             cid;                // context's ID
-    int             cpuTime;            // process's running time
-    char            name[P1_MAXNAME+1]; // process's name
-    int             priority;           // process's priority
-    P1_State        state;              // state of the PCB
-    // more fields here
+	int				cid;                // context's ID
+	int				cpuTime;            // process's running time
+	char			name[P1_MAXNAME+1]; // process's name
+	int				priority;           // process's priority
+	P1_State		state;              // state of the PCB
+	// more fields here
 	int				initialize; // 
-	int           (*startFunc)(void *);
-	void            *startArg;
-	void 			*stack;
-	USLOSS_Context  context;
+	int				(*startFunc)(void *);
+	void			*startArg;
+	void			*stack;
+	USLOSS_Context	context;
 } PCB;
 
 static PCB processTable[P1_MAXPROC];   // the process table
 static int currentCid = -1;
 void checkIfIsKernel();
 static void launch(void);
-extern  USLOSS_PTE  *P3_AllocatePageTable(int cid);
-extern  void        P3_FreePageTable(int cid);
+extern  USLOSS_PTE	*P3_AllocatePageTable(int cid);
+extern  void		P3_FreePageTable(int cid);
 
 
 void P1ProcInit(void)
 {
-    P1ContextInit();
-    // initialize everything including the processTable
+	P1ContextInit();
+	// initialize everything including the processTable
 	int i;
 	for (i = 0; i < P1_MAXPROC; i++){
 		processTable[i].cid = 0;
@@ -48,18 +48,18 @@ void P1ProcInit(void)
 
 int P1_GetPid(void) 
 {
-    return 0;
+	return 0;
 }
 
 int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priority, int tag, int *pid ) 
 {
-    int result = P1_SUCCESS;
+	int result = P1_SUCCESS;
 
-    // check for kernel mode
+	// check for kernel mode
 	checkIfIsKernel();
-    // disable interrupts
+	// disable interrupts
 	P1DisableInterrupts();
-    // check all parameters
+	// check all parameters
 	if (name == NULL){
 		return P1_NAME_IS_NULL;
 	}
@@ -76,7 +76,7 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
 	if (stacksize < USLOSS_MIN_STACK){
 		return P1_INVALID_STACK;
 	}
-    // create a context using P1ContextCreate
+	// create a context using P1ContextCreate
 	int i;
 	// find a free context and initialize it
 	for (i = 0; i < P1_MAXPROC; i++){
@@ -94,17 +94,17 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
 	processTable[*pid].startFunc = func;
 	processTable[*pid].startArg = arg;
 
-    // allocate stack
+	// allocate stack
 	void *stack = malloc(stacksize);
 	processTable[*pid].stack = stack;
 	USLOSS_Context new;
 	USLOSS_ContextInit(&new , stack, stacksize, P3_AllocatePageTable(*pid), &launch);
 	processTable[*pid].context = new;
-    // if this is the first process or this process's priority is higher than the 
-    //    currently running process call P1Dispatch(FALSE)
-    // re-enable interrupts if they were previously enabled
+	// if this is the first process or this process's priority is higher than the 
+	//    currently running process call P1Dispatch(FALSE)
+	// re-enable interrupts if they were previously enabled
 	P1EnableInterrupts();
-    return result;
+	return result;
 }
 
 void 
@@ -164,7 +164,7 @@ void checkIfIsKernel(){
 
 static void launch(void)
 {
-    assert(processTable[currentCid].startFunc != NULL);
-    processTable[currentCid].startFunc(processTable[currentCid].startArg);
+	assert(processTable[currentCid].startFunc != NULL);
+	processTable[currentCid].startFunc(processTable[currentCid].startArg);
 }
 
