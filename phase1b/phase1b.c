@@ -40,7 +40,7 @@ static int currentPid = -1;
 
 void checkIfIsKernel();
 int pidIsValid(int pid);
-int addToHead(ChildNode *head, int pid, int status);
+void addToHead(ChildNode *head, int pid, int status, int *listSize);
 static void launch(void *arg);
 extern  USLOSS_PTE  *P3_AllocatePageTable(int cid);
 extern  void        P3_FreePageTable(int cid);
@@ -140,7 +140,7 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
 	processTable[*pid].quitChildrenHead = (ChildNode *) malloc(sizeof(ChildNode));
 	processTable[*pid].quitChildrenHead -> next = NULL;
 	if (currentPid != -1) {
-		addToHead(processTable[currentPid].childrenHead, *pid, 0);
+		addToHead(processTable[currentPid].childrenHead, *pid, 0, &processTable[currentPid].numChildren);
 		processTable[currentPid].numChildren++;
 	}
 	strncpy(processTable[*pid].name, name, P1_MAXNAME + 1);
@@ -165,7 +165,7 @@ P1_Quit(int status)
 	checkIfIsKernel();
     // disable interrupts
     P1DisableInterrupts();
-
+    USLOSS_Console("made it here");
     // remove from ready queue, set status to P1_STATE_QUIT
     removeElementFromQueue(currentPid);
     processTable[currentPid].state = P1_STATE_QUIT;
@@ -178,15 +178,20 @@ P1_Quit(int status)
     	} 
     } else { // otherwise give children to first process
     	ChildNode *temp = processTable[currentPid].childrenHead;
-    	int added = 0, quitAdded = 0;
     	while (temp -> next != NULL) {
-    		added += addToHead(processTable[firstProcess].childrenHead, temp -> next -> pid, temp -> next -> status);
-    		//if (processTable[temp -> next -> pid].state = P1_STATE_QUIT) quitAdded += 
+    		addToHead(processTable[firstProcess].childrenHead, temp -> next -> pid, temp -> next -> status, &processTable[firstProcess].numChildren);
+    		if (processTable[temp -> next -> pid].state = P1_STATE_QUIT) 
+    			addToHead(processTable[firstProcess].quitChildrenHead, temp -> next -> pid, temp -> next -> status, &processTable[firstProcess].numChildrenQuit);
     	}
     }
 
-    // add ourself to list of our parent's children that have quit
-    // if parent is in state P1_STATE_JOINING set its state to P1_STATE_READY
+	int parent = processTable[currentPid].parent;
+    if (pidIsValid(parent)) {
+    	// add ourself to list of our parent's children that have quit
+    	addToHead(processTable[parent].quitChildrenHead, currentPid, status, &processTable[parent].numChildrenQuit);
+	}
+
+    if (processTable[parent].state == P1_STATE_JOINING) P1SetState(parent, P1_STATE_READY, 0);
     P1Dispatch(FALSE);
     // should never get here
     assert(0);
@@ -201,20 +206,19 @@ void freeList(ChildNode *head) {
 	}
 }
 
-int removeElementFromList(ChildNode *head, int pid) {
+void removeElementFromList(ChildNode *head, int pid, int *listSize) {
 	ChildNode *temp = head;
-	int count = 0;
+
 	while (temp -> next != NULL) {
 		if (temp -> next -> pid == pid) {
 			ChildNode *found = temp -> next;
 			temp -> next = found -> next;
 			free(found);
-			count++;
+			(*listSize)--;
 			continue;
 		}
 		temp = temp -> next;
 	}
-	return count;
 }
 
 void freeProcess(int pid) {
@@ -224,11 +228,8 @@ void freeProcess(int pid) {
 	freeList(processTable[pid].quitChildrenHead);
 	int parent = processTable[pid].parent;
 
-	int count;
-	count = removeElementFromList(processTable[parent].childrenHead, pid);
-	processTable[parent].numChildren -= count;
-	count = removeElementFromList(processTable[parent].quitChildrenHead, pid);
-	processTable[parent].numChildrenQuit -= count;
+	removeElementFromList(processTable[parent].childrenHead, pid, &processTable[parent].numChildren);
+	removeElementFromList(processTable[parent].quitChildrenHead, pid, &processTable[parent].numChildrenQuit);
 
 	processTable[pid].state = P1_STATE_FREE;
 	if (interruptsWereEnabled) P1EnableInterrupts();
@@ -342,10 +343,10 @@ int pidIsValid(int pid) {
 	return pid >= 0 && pid < P1_MAXPROC && processTable[pid].state != P1_STATE_FREE;
 }
 
-int addToHead(ChildNode *head, int pid, int status) {
+void addToHead(ChildNode *head, int pid, int status, int *listSize) {
 	ChildNode *temp = head;
 	while (temp -> next != NULL) {
-		if (temp -> next -> pid == pid) return FALSE;
+		if (temp -> next -> pid == pid) return;
 	}
 
 	ChildNode *newNode = (ChildNode *) malloc(sizeof(ChildNode));
@@ -354,7 +355,7 @@ int addToHead(ChildNode *head, int pid, int status) {
 	newNode -> next = NULL;
 
 	temp -> next = newNode;
-	return TRUE;
+	(*listSize)++;
 }
 
 /************************************************************************************/
