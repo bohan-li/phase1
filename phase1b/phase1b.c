@@ -165,7 +165,6 @@ P1_Quit(int status)
 	checkIfIsKernel();
     // disable interrupts
     P1DisableInterrupts();
-    USLOSS_Console("made it here");
     // remove from ready queue, set status to P1_STATE_QUIT
     removeElementFromQueue(currentPid);
     processTable[currentPid].state = P1_STATE_QUIT;
@@ -173,7 +172,7 @@ P1_Quit(int status)
 	// if first process verify it doesn't have children
     if (currentPid == firstProcess ) {
     	if (processTable[firstProcess].numChildren != 0) {
-    		USLOSS_Console("First process quitting with children, halting.");
+    		USLOSS_Console("First process quitting with children, halting. \n");
     		USLOSS_Halt(1);
     	} 
     } else { // otherwise give children to first process
@@ -289,13 +288,15 @@ P1Dispatch(int rotate)
 	// check for kernel mode
 	checkIfIsKernel();
     // select the highest-priority runnable process
-    int highestPriorityProcess = priorityQueue[0];
+    int highestPriorityProcess = removeMaxPriority();
+
     if (highestPriorityProcess == -1) {
-    	USLOSS_Console("No runnable processes, halting.");
+    	USLOSS_Console("No runnable processes, halting.\n");
     	USLOSS_Halt(0);
-    } else if (processTable[highestPriorityProcess].priority == processTable[currentPid].priority && !rotate) {
+    } else if (currentPid != -1 && processTable[highestPriorityProcess].priority == processTable[currentPid].priority && !rotate) {
     	return;
     }
+
     if (currentPid != -1) P1SetState(currentPid, P1_STATE_READY, 0);
     currentPid = highestPriorityProcess;
     processTable[currentPid].state = P1_STATE_RUNNING;
@@ -407,6 +408,7 @@ int removeMaxPriority() {
 	if (queueSize == 0) return -1;
 	swap(0, --queueSize);
 	bubbleDown(0);
+
 	return priorityQueue[queueSize];
 }
 
@@ -421,12 +423,13 @@ void insertIntoRunnableQueue(int pid) {
 
 void removeElementFromQueue(int element) {
 	int i;
-	for (i = 0; i < P1_MAXPROC; i++) {
-		if (priorityQueue[i] == element) break;
+	for (i = 0; i < queueSize; i++) {
+		if (priorityQueue[i] == element) {
+			swap(i, --queueSize);
+			bubbleDown(i);
+			return;
+		}
 	}
-	assert(i != P1_MAXPROC);
-	swap(i, --queueSize);
-	bubbleDown(i);
 }
 
 /**
