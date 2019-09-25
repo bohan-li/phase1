@@ -2,6 +2,11 @@
 #include <phase1Int.h>
 #include <assert.h>
 
+/*
+This test case creates a first process Output, forks it to another process forked, and creates two new child processes c1, c2 in the forked.
+Forked has highest priority and c1, c2 have lowest priority, so it will create c1, c2, finish, then add the children to Output.
+Since join is not yet implemented, output should terminate with children, producing an error.
+*/
 void printState(P1_State state) {
 	switch (state) {
 	case P1_STATE_READY: 
@@ -44,16 +49,14 @@ static int forked(void *arg) {
 	// child 1
 	rc = P1_Fork("c1", childFunc, arg, USLOSS_MIN_STACK, priority, tag, &pid);
 	assert(rc == P1_SUCCESS);
-	USLOSS_Console("here %d\n", pid);
 	rc = P1_GetProcInfo(pid, &info);
-	USLOSS_Console("%d\n", rc);
 	assert(rc == P1_SUCCESS);
-	assert(pid == 1);
-	printState(info.state);
+	assert(pid == 2);
+
 	assert(info.state == P1_STATE_READY);
 	assert(info.priority == priority);
 	assert(info.tag == tag);
-	assert(info.parent == 0);
+	assert(info.parent == 1);
 	assert(info.numChildren == 0);
 
 	rc = P1_GetProcInfo(P1_GetPid(), &info);
@@ -62,15 +65,15 @@ static int forked(void *arg) {
 
 	// child 2
 	rc = P1_Fork("c2", childFunc, arg, USLOSS_MIN_STACK, priority, tag, &pid);
+
 	assert(rc == P1_SUCCESS);
 	rc = P1_GetProcInfo(pid, &info);
 	assert(rc == P1_SUCCESS);
-	assert(pid == 1);
-	printState(info.state);
+	assert(pid == 3);
 	assert(info.state == P1_STATE_READY);
 	assert(info.priority == priority);
 	assert(info.tag == tag);
-	assert(info.parent == 0);
+	assert(info.parent == 1);
 	assert(info.numChildren == 0);
 
 	rc = P1_GetProcInfo(P1_GetPid(), &info);
@@ -95,7 +98,6 @@ Output(void *arg)
 	rc = P1_GetProcInfo(pid, &info);
 	assert(rc == P1_SUCCESS);
 	assert(pid == 1);
-	printState(info.state);
 	assert(info.state == P1_STATE_QUIT);
 	assert(info.priority == priority);
 	assert(info.tag == 0);

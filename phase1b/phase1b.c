@@ -118,15 +118,18 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
 	}
 	// create a context using P1ContextCreate
 	int i;
+	for (i = 0; i < P1_MAXPROC; i++) {
+		if (processTable[i].state != P1_STATE_FREE && strcmp(processTable[i].name, name) == 0) {
+			return P1_DUPLICATE_NAME;
+		}
+	}
 	// find a free context and initialize it
 	for (i = 0; i < P1_MAXPROC; i++){
 		if (processTable[i].state == P1_STATE_FREE) {
-			P1SetState(i, P1_STATE_READY, 0);
+			int rc = P1SetState(i, P1_STATE_READY, 0);
+			assert(rc == P1_SUCCESS);
 			*pid = i;
 			break;
-		}
-		else if (strcmp(processTable[i].name, name) == 0) {
-			return P1_DUPLICATE_NAME;
 		}
 	}
 	if (i == P1_MAXPROC) return P1_TOO_MANY_PROCESSES;
@@ -144,12 +147,15 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
 	processTable[*pid].quitChildrenHead = (ChildNode *) malloc(sizeof(ChildNode));
 	processTable[*pid].quitChildrenHead -> next = NULL;
 	processTable[*pid].numChildrenQuit = 0;
+
 	if (currentPid != -1) {
 		addToHead(processTable[currentPid].childrenHead, *pid, 0, &processTable[currentPid].numChildren);
 	}
+
 	strncpy(processTable[*pid].name, name, P1_MAXNAME + 1);
 
 	insertIntoRunnableQueue(*pid);
+
 
     // if this is the first process or this process's priority is higher than the 
     //    currently running process call P1Dispatch(FALSE)
@@ -185,7 +191,8 @@ P1_Quit(int status)
     		addToHead(processTable[firstProcess].childrenHead, temp -> next -> pid, temp -> next -> status, &processTable[firstProcess].numChildren);
     		if (processTable[temp -> next -> pid].state == P1_STATE_QUIT) 
     			addToHead(processTable[firstProcess].quitChildrenHead, temp -> next -> pid, temp -> next -> status, &processTable[firstProcess].numChildrenQuit);
-    	}
+			temp = temp -> next;
+		}
     }
 
 	int parent = processTable[currentPid].parent;
@@ -265,7 +272,8 @@ P1SetState(int pid, P1_State state, int sid)
 {
 	// check for kernel mode
 	checkIfIsKernel();
-	if (!pidIsValid(pid)) return P1_INVALID_PID;
+	int isFreeToReadyTransition = pid >= 0 && pid < P1_MAXPROC && processTable[pid].state == P1_STATE_FREE && state == P1_STATE_READY;
+	if ((!pidIsValid(pid)) && (!isFreeToReadyTransition)) return P1_INVALID_PID;
 
    	int result = P1_SUCCESS;
 
@@ -358,6 +366,7 @@ void addToHead(ChildNode *head, int pid, int status, int *listSize) {
 	ChildNode *temp = head;
 	while (temp -> next != NULL) {
 		if (temp -> next -> pid == pid) return;
+		temp = temp -> next;
 	}
 
 	ChildNode *newNode = (ChildNode *) malloc(sizeof(ChildNode));
