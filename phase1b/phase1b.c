@@ -9,6 +9,7 @@ Phase 1b
 #include <assert.h>
 #include <stdio.h>
 
+// linked list for keeping track of
 typedef struct ChildNode {
 	int pid;
 	int status;
@@ -161,7 +162,7 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
     //    currently running process call P1Dispatch(FALSE)
     int isFirstFork = firstProcess == -1;
     if (isFirstFork) firstProcess = *pid;
-	if (isFirstFork || priority > processTable[currentPid].priority) P1Dispatch(FALSE);
+	if (isFirstFork || priority < processTable[currentPid].priority) P1Dispatch(FALSE);
 
     // re-enable interrupts if they were previously enabled
 	if (interruptsWereEnabled) P1EnableInterrupts();
@@ -208,6 +209,7 @@ P1_Quit(int status)
     assert(0);
 }
 
+// frees list pointed to by head of all memory
 void freeList(ChildNode *head) {
 	ChildNode *temp = head;
 	while (temp != NULL) {
@@ -217,6 +219,7 @@ void freeList(ChildNode *head) {
 	}
 }
 
+// removes node with pid from list, updating listsize.
 void removeElementFromList(ChildNode *head, int pid, int *listSize) {
 	ChildNode *temp = head;
 
@@ -232,6 +235,7 @@ void removeElementFromList(ChildNode *head, int pid, int *listSize) {
 	}
 }
 
+// frees memory associated with process pid
 void freeProcess(int pid) {
 	int interruptsWereEnabled = P1DisableInterrupts();
 	P1ContextFree(processTable[pid].cid);
@@ -303,7 +307,6 @@ P1Dispatch(int rotate)
 
     // select the highest-priority runnable process
     int highestPriorityProcess = removeMaxPriority();
-
     if (highestPriorityProcess == -1) {
     	USLOSS_Console("No runnable processes, halting.\n");
     	USLOSS_Halt(0);
@@ -362,6 +365,8 @@ int pidIsValid(int pid) {
 	return pid >= 0 && pid < P1_MAXPROC && processTable[pid].state != P1_STATE_FREE;
 }
 
+// adds a node to the end of the list pointed to by head, does not add if it finds
+// another element with the same pid. Updates new listsize.
 void addToHead(ChildNode *head, int pid, int status, int *listSize) {
 	ChildNode *temp = head;
 	while (temp -> next != NULL) {
@@ -406,7 +411,7 @@ ChildrenIndices getChildrenIndices(int index);
  * Compares priority of two pid's.
  */
 int compare(int pid1, int pid2) {
-	return processTable[pid1].priority - processTable[pid2].priority;
+	return processTable[pid2].priority - processTable[pid1].priority;
 }
 
 /**
@@ -440,6 +445,7 @@ void insertIntoRunnableQueue(int pid) {
 	queueSize++;
 }
 
+// removes the element from the priority queue
 void removeElementFromQueue(int element) {
 	int i;
 	for (i = 0; i < queueSize; i++) {
