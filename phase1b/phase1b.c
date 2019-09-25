@@ -67,6 +67,8 @@ void P1ProcInit(void)
 		processTable[i].cid = 0;
 		processTable[i].cpuTime = 0;
 		processTable[i].priority = 0;
+		processTable[i].startFunc = NULL;
+		processTable[i].startArg = NULL;
 		processTable[i].state = P1_STATE_FREE;
 	}
 
@@ -74,6 +76,7 @@ void P1ProcInit(void)
 
 int P1_GetPid(void) 
 {
+	checkIfIsKernel();
 	return currentPid;
 }
 
@@ -117,13 +120,13 @@ int P1_Fork(char *name, int (*func)(void*), void *arg, int stacksize, int priori
 	int i;
 	// find a free context and initialize it
 	for (i = 0; i < P1_MAXPROC; i++){
-		if (strcmp(processTable[i].name, name) == 0){
-			return P1_DUPLICATE_NAME;
-		}	
 		if (processTable[i].state == P1_STATE_FREE) {
 			P1SetState(i, P1_STATE_READY, 0);
 			*pid = i;
 			break;
+		}
+		else if (strcmp(processTable[i].name, name) == 0) {
+			return P1_DUPLICATE_NAME;
 		}
 	}
 	if (i == P1_MAXPROC) return P1_TOO_MANY_PROCESSES;
@@ -192,6 +195,7 @@ P1_Quit(int status)
 	}
 
     if (processTable[parent].state == P1_STATE_JOINING) P1SetState(parent, P1_STATE_READY, 0);
+	currentPid = -1;
     P1Dispatch(FALSE);
     // should never get here
     assert(0);
@@ -226,6 +230,7 @@ void freeProcess(int pid) {
 	P1ContextFree(processTable[pid].cid);
 	freeList(processTable[pid].childrenHead);
 	freeList(processTable[pid].quitChildrenHead);
+	processTable[pid].childrenHead = processTable[pid].quitChildrenHead = NULL;
 	int parent = processTable[pid].parent;
 
 	removeElementFromList(processTable[parent].childrenHead, pid, &processTable[parent].numChildren);
@@ -243,17 +248,16 @@ P1GetChildStatus(int tag, int *pid, int *status)
 
     if (tag % 2 != tag) return P1_INVALID_TAG;
 
-    if (processTable[currentPid].numChildren == 0) return P1_NO_QUIT;
-
+    if (processTable[currentPid].numChildren == 0) return P1_NO_CHILDREN;
     for (ChildNode *child = processTable[currentPid].quitChildrenHead; child -> next != NULL; child = child -> next) {
-    	if (processTable[child -> pid].tag == tag) {
-    		*pid = child -> pid;
-    		*status = child -> status;
+    	if (processTable[child -> next -> pid].tag == tag) {
+    		*pid = child -> next -> pid;
+    		*status = child -> next -> status;
     		freeProcess(*pid);
     		return P1_SUCCESS;
     	}
     }
-    return P1_NO_CHILDREN;
+    return P1_NO_QUIT;
 }
 
 int
@@ -288,6 +292,7 @@ P1Dispatch(int rotate)
 {
 	// check for kernel mode
 	checkIfIsKernel();
+
     // select the highest-priority runnable process
     int highestPriorityProcess = removeMaxPriority();
 
@@ -321,7 +326,7 @@ P1_GetProcInfo(int pid, P1_ProcInfo *info)
 	info->sid = processTable[pid].sid;			 // semaphore on which process is blocked, if any
 	info->priority = processTable[pid].priority; // process's priority
 	info->tag = processTable[pid].tag;           // process's tag
-    //info->cpu                                  // CPU consumed (in us)
+	info->cpu = processTable[pid].cpuTime;       // CPU consumed (in us)
     info->parent = processTable[pid].parent;     // parent PID
 
 	int i = 0;
