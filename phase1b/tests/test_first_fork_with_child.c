@@ -39,7 +39,7 @@ Output(void *arg)
     char *msg = (char *) arg;
 
     USLOSS_Console("%s", msg);
-	int priority = 5;
+	int priority = 1;
 	int pid;
 	int rc = P1_Fork("forked", forked, "Forked\n", USLOSS_MIN_STACK, priority, 0, &pid);
 	assert(rc == P1_SUCCESS);
@@ -87,7 +87,7 @@ startup(int argc, char **argv)
     int rc;
     P1ProcInit();
     USLOSS_Console("startup\n");
-    rc = P1_Fork("Hello", Output, "Hello World!\n", USLOSS_MIN_STACK, 4, 0, &pid);
+    rc = P1_Fork("Hello", Output, "Hello World!\n", USLOSS_MIN_STACK, 2, 0, &pid);
     assert(rc == P1_SUCCESS);
     // P1_Fork should not return
     assert(0);

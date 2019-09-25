@@ -41,7 +41,7 @@ static int forked(void *arg) {
 
 	USLOSS_Console("%s", msg);
 
-	int priority = 1, tag = 1;
+	int priority = 5, tag = 1;
 	int rc;
 	P1_ProcInfo info;
 	int pid;
@@ -90,7 +90,7 @@ Output(void *arg)
     char *msg = (char *) arg;
 
     USLOSS_Console("%s", msg);
-	int priority = 5;
+	int priority = 1;
 	int pid;
 	int rc = P1_Fork("forked", forked, "Forked\n", USLOSS_MIN_STACK, priority, 0, &pid);
 	assert(rc == P1_SUCCESS);
