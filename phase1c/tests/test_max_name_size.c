@@ -4,7 +4,7 @@
 #include <string.h>
 
 static int flag = 0;
-static int global = 4;
+static int global = 3;
 
 static int
 Unblocks(void *arg)
@@ -93,4 +93,3 @@ void test_setup(int argc, char **argv) {}
 void test_cleanup(int argc, char **argv) {}
 
 void finish(int argc, char **argv) {}
-

@@ -108,7 +108,7 @@ tests: $(TOUTS)
 $(TESTS):   %: $(TARGET) %.o $(STUBS)
 	$(LD) $(LDFLAGS) -o $@ $@.o $(STUBS) $(LIBFLAGS)
 
-clean:
+clean::
 	rm -f $(COBJS) $(TARGET) $(TOBJS) $(TESTS) $(DEPS) $(TVS) *.out tests/*.out tests/*.err
 
 %.d: %.c

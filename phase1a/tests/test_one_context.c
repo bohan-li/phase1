@@ -22,14 +22,11 @@ startup(int argc, char **argv)
     rc = P1ContextSwitch(cid);
     // should not return
     assert(rc == P1_SUCCESS);
-	P1ContextFree(cid);
     assert(0);
 }
 
 void test_setup(int argc, char **argv) {}
 
-void test_cleanup(int argc, char **argv) {
-	P1ContextFree(0);
-}
+void test_cleanup(int argc, char **argv) {}
 
 void finish(int argc, char **argv) {}

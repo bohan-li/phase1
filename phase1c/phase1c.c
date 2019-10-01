@@ -101,6 +101,7 @@ int P1_P(int sid)
         }
         int thisPid = P1_GetPid();
         P1SetState(thisPid, P1_STATE_BLOCKED, sid);
+
         // add item to blocked queue of semaphore
         if (sems[sid].queueSize == 0) {
             sems[sid].queue[0] = thisPid;
