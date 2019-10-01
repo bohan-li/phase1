@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include "usloss.h"
 #include "phase1Int.h"
+#include "phase1.h"
 
 void checkIfIsKernel();
 int isValidSid(int sid); 
@@ -89,38 +90,60 @@ int P1_P(int sid)
     if (!isValidSid(sid)) return P1_INVALID_SID;
 
     int result = P1_SUCCESS;
-    
     int interruptsWereEnabled;
+
     while (1) {
         interruptsWereEnabled = P1DisableInterrupts();
+
         if (sems[sid].value > 0) {
             sems[sid].value--;
             break;
         }
         int thisPid = P1_GetPid();
         P1SetState(thisPid, P1_STATE_BLOCKED, sid);
-
         // add item to blocked queue of semaphore
         if (sems[sid].queueSize == 0) {
             sems[sid].queue[0] = thisPid;
             sems[sid].queueHead = 0;
             sems[sid].queueSize++;
-        }
-        // check if process is in sem queue before adding
-        int i, endIndex = sems[sid].queueHead + sems[sid].queueSize;
-        for (i = sems[sid].queueHead; i < endIndex; i++) {
-            if (sems[sid].queue[i % P1_MAXPROC] == thisPid) break;
-        }
-        // duplicate not found, add the item to the blocked queue
-        if (i == sems[sid].queueHead + sems[sid].queueSize) {
-            sems[sid].queue[i % P1_MAXPROC] = thisPid;
-            sems[sid].queueSize++;
+        } else {
+            // check if process is in sem queue before adding
+            int i, endIndex = sems[sid].queueHead + sems[sid].queueSize;
+            for (i = sems[sid].queueHead; i < endIndex; i++) {
+                if (sems[sid].queue[i % P1_MAXPROC] == thisPid) break;
+            }
+            // duplicate not found, add the item to the blocked queue
+            if (i == endIndex) {
+                sems[sid].queue[i % P1_MAXPROC] = thisPid;
+                sems[sid].queueSize++;
+
+                // maintain priority order
+                int j;
+                for (j = endIndex; j > sems[sid].queueHead; j--) {
+                    int thisIndex = j % P1_MAXPROC;
+                    int nextIndex = (j - 1) % P1_MAXPROC;
+
+                    P1_ProcInfo thisProcInfo, nextProcInfo;
+                    int rc;
+                    rc = P1_GetProcInfo(sems[sid].queue[thisIndex], &thisProcInfo);
+                    assert(rc == P1_SUCCESS);
+                    rc = P1_GetProcInfo(sems[sid].queue[nextIndex], &nextProcInfo);
+                    assert(rc == P1_SUCCESS);
+
+                    // swap if out of priority order
+                    if (thisProcInfo.priority < nextProcInfo.priority) {
+                        int thisPid = sems[sid].queue[thisIndex];
+                        sems[sid].queue[thisIndex] = sems[sid].queue[nextIndex];
+                        sems[sid].queue[nextIndex] = thisPid;
+                    }
+                    else break;
+                }
+            }
         }
 
         if (interruptsWereEnabled) P1EnableInterrupts();
         P1Dispatch(FALSE);
     }
-    sems[sid].value--;
 
     if (interruptsWereEnabled) P1EnableInterrupts();
     return result;
@@ -133,8 +156,8 @@ int P1_V(int sid)
 
     int result = P1_SUCCESS;
     int interruptsWereEnabled = P1DisableInterrupts();
-    sems[sid].value++;
 
+    sems[sid].value++;
     // if a process is waiting for this semaphore
     //      set the process's state to P1_STATE_READY
     if (sems[sid].queueSize > 0) {
@@ -142,6 +165,9 @@ int P1_V(int sid)
         // remove the process from the blocked queue of the semaphore
         sems[sid].queueHead = (sems[sid].queueHead + 1) % P1_MAXPROC;
         sems[sid].queueSize--;
+
+        if (interruptsWereEnabled) P1EnableInterrupts();
+        P1Dispatch(FALSE);
     }
 
     if (interruptsWereEnabled) P1EnableInterrupts();
@@ -153,7 +179,7 @@ int P1_SemName(int sid, char *name) {
     if (!isValidSid(sid)) return P1_INVALID_SID;
     if (name == NULL) return P1_NAME_IS_NULL;
     strncpy(name, sems[sid].name, P1_MAXPROC);
-    name[P1_MAXPROC] = '\0';
+    name[P1_MAXNAME] = '\0';
     return P1_SUCCESS;
 }
 
