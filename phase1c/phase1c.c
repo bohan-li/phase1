@@ -8,12 +8,14 @@
 #include "phase1Int.h"
 
 void checkIfIsKernel();
+int isValidSid(int sid); 
 
 typedef struct Sem
 {
     char        name[P1_MAXNAME+1];
     u_int       value;
     // more fields here
+    int         initialized;
     int         queue[P1_MAXPROC];
     int         queueHead;
     int         queueSize;
@@ -29,8 +31,9 @@ P1SemInit(void)
     // initialize sems here
     int i;
     for (i = 0; i < P1_MAXPROC; i++) {
-        sems.queueHead[i] = -1;
-        sems.queueSize[i] = 0;
+        sems[i].initialized = FALSE;
+        sems[i].queueHead = -1;
+        sems[i].queueSize = 0;
     }
 }
 
@@ -38,11 +41,30 @@ int P1_SemCreate(char *name, unsigned int value, int *sid)
 {
     checkIfIsKernel();
     int result = P1_SUCCESS;
-    // check for kernel mode
-    // disable interrupts
+    
+    int interruptsWereEnabled = P1DisableInterrupts();
+    int i;
+
     // check parameters
+    if (name == NULL) return P1_NAME_IS_NULL;
+    if (strlen(name) > P1_MAXNAME) return P1_NAME_TOO_LONG;
+    for (i = 0; i < P1_MAXSEM; i++) {
+        if (sems[i].initialized && strcmp(name, sems[i].name) == 0) return P1_DUPLICATE_NAME;
+    }
+
     // find a free Sem and initialize it
-    // re-enable interrupts if they were previously enabled
+    for (i = 0; i < P1_MAXSEM; i++) {
+        if (!sems[i].initialized) {
+            sems[i].initialized = TRUE;
+            break;
+        }
+    }
+    if (i == P1_MAXSEM) return P1_TOO_MANY_SEMS;
+    strncpy(sems[i].name, name, P1_MAXPROC);
+    sems[i].name[P1_MAXPROC] = '\0';
+    *sid = i;
+
+    if (interruptsWereEnabled) P1EnableInterrupts();
     return result;
 }
 
@@ -51,44 +73,88 @@ int P1_SemFree(int sid)
     checkIfIsKernel();
 
     int     result = P1_SUCCESS;
-    // more code here
+    if (!isValidSid(sid)) return P1_INVALID_SID;
+    if (sems[sid].queueSize > 0) return P1_BLOCKED_PROCESSES;
+
+    sems[sid].initialized = FALSE;
+    sems[sid].queueSize = 0;
+    sems[sid].queueHead = -1;
+
     return result;
 }
 
 int P1_P(int sid) 
 {
     checkIfIsKernel();
+    if (!isValidSid(sid)) return P1_INVALID_SID;
 
     int result = P1_SUCCESS;
-    // check for kernel mode
-    // disable interrupts
-    // while value == 0
-    //      set state to P1_STATE_BLOCKED
-    // value--
-    // re-enable interrupts if they were previously enabled
+    
+    int interruptsWereEnabled;
+    while (1) {
+        interruptsWereEnabled = P1DisableInterrupts();
+        if (sems[sid].value > 0) {
+            sems[sid].value--;
+            break;
+        }
+        int thisPid = P1_GetPid();
+        P1SetState(thisPid, P1_STATE_BLOCKED, sid);
+
+        // add item to blocked queue of semaphore
+        if (sems[sid].queueSize == 0) {
+            sems[sid].queue[0] = thisPid;
+            sems[sid].queueHead = 0;
+            sems[sid].queueSize++;
+        }
+        // check if process is in sem queue before adding
+        int i, endIndex = sems[sid].queueHead + sems[sid].queueSize;
+        for (i = sems[sid].queueHead; i < endIndex; i++) {
+            if (sems[sid].queue[i % P1_MAXPROC] == thisPid) break;
+        }
+        // duplicate not found, add the item to the blocked queue
+        if (i == sems[sid].queueHead + sems[sid].queueSize) {
+            sems[sid].queue[i % P1_MAXPROC] = thisPid;
+            sems[sid].queueSize++;
+        }
+
+        if (interruptsWereEnabled) P1EnableInterrupts();
+        P1Dispatch(FALSE);
+    }
+    sems[sid].value--;
+
+    if (interruptsWereEnabled) P1EnableInterrupts();
     return result;
 }
 
 int P1_V(int sid) 
 {
     checkIfIsKernel();
+    if (!isValidSid(sid)) return P1_INVALID_SID;
 
     int result = P1_SUCCESS;
-    // check for kernel mode
-    // disable interrupts
-    // value++
+    int interruptsWereEnabled = P1DisableInterrupts();
+    sems[sid].value++;
+
     // if a process is waiting for this semaphore
     //      set the process's state to P1_STATE_READY
-    // re-enable interrupts if they were previously enabled
+    if (sems[sid].queueSize > 0) {
+        P1SetState(sems[sid].queue[sems[sid].queueHead], P1_STATE_READY, sid);
+        // remove the process from the blocked queue of the semaphore
+        sems[sid].queueHead = (sems[sid].queueHead + 1) % P1_MAXPROC;
+        sems[sid].queueSize--;
+    }
+
+    if (interruptsWereEnabled) P1EnableInterrupts();
     return result;
 }
 
 int P1_SemName(int sid, char *name) {
     checkIfIsKernel();
-
-    int result = P1_SUCCESS;
-    // more code here
-    return result;
+    if (!isValidSid(sid)) return P1_INVALID_SID;
+    if (name == NULL) return P1_NAME_IS_NULL;
+    strncpy(name, sems[sid].name, P1_MAXPROC);
+    name[P1_MAXPROC] = '\0';
+    return P1_SUCCESS;
 }
 
 /*
@@ -100,4 +166,8 @@ void checkIfIsKernel(){
         USLOSS_Console("The OS must be in kernel mode!");
         USLOSS_IllegalInstruction();
     }
+}
+
+int isValidSid(int sid) {
+    return sid >= 0 && sid < P1_MAXSEM && sems[sid].initialized;
 }
