@@ -195,6 +195,8 @@ void checkIfIsKernel(){
     }
 }
 
+
+// helper function to validate sid's
 int isValidSid(int sid) {
     return sid >= 0 && sid < P1_MAXSEM && sems[sid].initialized;
 }
