@@ -54,6 +54,10 @@ startup(int argc, char **argv)
 		rc = P1_SemCreate(result, 0, &sem); 
 	}
 	rc = P1_SemFree(47);
+	//*******************************
+	//rc = P1_SemFree(47);
+	//assert(rc != P1_INVALID_SID); // free twice the same place should throw an error
+	//*******************************
 	assert(rc == P1_SUCCESS);
 
 	rc = P1_SemCreate("asdf", 0, &sem); 
