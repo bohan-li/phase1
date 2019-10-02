@@ -17,7 +17,7 @@ typedef struct Sem
     u_int       value;
     // more fields here
     int         initialized;
-    int         queue[P1_MAXPROC];
+    int         queue[P1_MAXPROC]; // priority queue of blocked processes
     int         queueHead;
     int         queueSize;
 } Sem;
@@ -38,6 +38,7 @@ P1SemInit(void)
     }
 }
 
+// initializes a semaphore with the given value and returns the sid, as well as a status
 int P1_SemCreate(char *name, unsigned int value, int *sid)
 {
     checkIfIsKernel();
@@ -176,6 +177,7 @@ int P1_V(int sid)
     return result;
 }
 
+// returns the name of the semaphore, name must have memory allocated
 int P1_SemName(int sid, char *name) {
     checkIfIsKernel();
     if (!isValidSid(sid)) return P1_INVALID_SID;
