@@ -48,18 +48,17 @@ startup(int argc, char **argv)
 
     P1SemInit();
     
-	for (int i = 0; i < P1_MAXSEM;i++){ //  make P1_MAXSEM sems
+	for (int i = 0; i < 50;i++){ //  make P1_MAXSEM sems
 		char result[50]; 
 		sprintf(result, "%d", i); 
 		rc = P1_SemCreate(result, 0, &sem); 
 	}
-	rc = P1_SemFree(sem);
-	printf("12121\n");
-	
+	rc = P1_SemFree(47);
+	assert(rc == P1_SUCCESS);
+
 	rc = P1_SemCreate("asdf", 0, &sem); 
 	assert(rc == P1_SUCCESS);
-	USLOSS_Console("IM HERE %d\n", sem);
-	assert(rc == P1_SUCCESS);
+    assert(sem == 47);
     // Blocks blocks then Unblocks unblocks it
     rc = P1_Fork("Blocks", Blocks, (void *) sem, USLOSS_MIN_STACK, 1, 0, &pid);
     assert(rc == P1_SUCCESS);
