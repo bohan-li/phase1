@@ -180,7 +180,7 @@ int P1_SemName(int sid, char *name) {
     checkIfIsKernel();
     if (!isValidSid(sid)) return P1_INVALID_SID;
     if (name == NULL) return P1_NAME_IS_NULL;
-    strncpy(name, sems[sid].name, P1_MAXPROC);
+    strncpy(name, sems[sid].name, P1_MAXNAME);
     name[P1_MAXNAME] = '\0';
     return P1_SUCCESS;
 }
