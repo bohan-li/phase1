@@ -61,8 +61,9 @@ int P1_SemCreate(char *name, unsigned int value, int *sid)
         }
     }
     if (i == P1_MAXSEM) return P1_TOO_MANY_SEMS;
-    strncpy(sems[i].name, name, P1_MAXPROC);
-    sems[i].name[P1_MAXPROC] = '\0';
+
+    strncpy(sems[i].name, name, P1_MAXNAME);
+    sems[i].name[P1_MAXNAME] = '\0';
     *sid = i;
 
     if (interruptsWereEnabled) P1EnableInterrupts();

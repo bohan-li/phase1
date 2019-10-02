@@ -25,6 +25,7 @@ Blocks(void *arg)
     int rc;
     int pid;
 
+    USLOSS_Console("here %d\n", sem);
     rc = P1_Fork("Unblocks", Unblocks, (void *) sem, USLOSS_MIN_STACK, 2, 0, &pid);
     assert(rc == P1_SUCCESS);
     USLOSS_Console("P on semaphore.\n");
@@ -57,10 +58,7 @@ startup(int argc, char **argv)
 	
 	rc = P1_SemCreate("asdf", 0, &sem); 
 	assert(rc == P1_SUCCESS);
-	
-	
-	
-	
+	USLOSS_Console("IM HERE %d\n", sem);
 	assert(rc == P1_SUCCESS);
     // Blocks blocks then Unblocks unblocks it
     rc = P1_Fork("Blocks", Blocks, (void *) sem, USLOSS_MIN_STACK, 1, 0, &pid);

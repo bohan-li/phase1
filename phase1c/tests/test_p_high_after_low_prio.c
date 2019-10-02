@@ -118,8 +118,4 @@ void test_setup(int argc, char **argv) {}
 
 void test_cleanup(int argc, char **argv) {}
 
-<<<<<<< HEAD
 void finish(int argc, char **argv) {}
-=======
-void finish(int argc, char **argv) {}
->>>>>>> prep for rebase
