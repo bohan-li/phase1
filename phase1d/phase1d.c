@@ -48,6 +48,10 @@ startup(int argc, char **argv)
     // put device interrupt handlers into interrupt vector
     USLOSS_IntVec[USLOSS_SYSCALL_INT] = SyscallHandler;
     USLOSS_IntVec[USLOSS_ILLEGAL_INT] = IllegalInstructionHandler;
+	USLOSS_IntVec[USLOSS_CLOCK_INT] = DeviceHandler;	
+	USLOSS_IntVec[USLOSS_ALARM_INT] = DeviceHandler;
+	USLOSS_IntVec[USLOSS_DISK_INT] = DeviceHandler;
+	USLOSS_IntVec[USLOSS_TERM_INT] = DeviceHandler;
 
     /* create the sentinel process */
     rc = P1_Fork("sentinel", sentinel, NULL, USLOSS_MIN_STACK, 6 , 0, &pid);
@@ -64,7 +68,7 @@ P1_WaitDevice(int type, int unit, int *status)
 	checkIfIsKernel();
 	if (!isValidType(type)) return P1_INVALID_TYPE;
 	if (!isValidUnit(type, unit)) return P1_INVALID_UNIT;
-	
+
     int     result = P1_SUCCESS;
 	
     // P device's semaphore
@@ -81,7 +85,7 @@ P1_WakeupDevice(int type, int unit, int status, int abort)
 	checkIfIsKernel();
 	if (!isValidType(type)) return P1_INVALID_TYPE;
 	if (!isValidUnit(type, unit)) return P1_INVALID_UNIT;
-	
+		
     int     result = P1_SUCCESS;
 	
     // save device's status
@@ -100,6 +104,7 @@ DeviceHandler(int type, void *arg)
 	tick = (tick + 1) % 20;
 	int unit = (int) arg;
 	int status;
+
 	USLOSS_DeviceInput(type, unit, &status);
     if (type == USLOSS_CLOCK_DEV) {
 		if (tick % 5 == 0) P1_WakeupDevice(type, unit, status, FALSE);

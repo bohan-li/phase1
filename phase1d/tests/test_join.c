@@ -14,6 +14,7 @@ int P2_Startup(void *notused)
     int rc;
     int pids[NUM];
     for (int i = 0; i < 100; i++) {
+	USLOSS_Console("outer loop %d\n", i);
         for (int j = 0; j < NUM; j++) {
             char name[P1_MAXNAME+1];
             snprintf(name, sizeof(name), "Child %d", j);
