@@ -127,7 +127,7 @@ sentinel (void *notused)
 		if (info.numChildren == 0) break;
 		for (tag = 0; tag < 2; tag++) {
 			rc = P1GetChildStatus(tag, &pid, &status);
-			if (rc == P1_NO_QUIT) continue;
+			if (rc == P1_NO_QUIT || rc == P1_NO_CHILDREN) continue;
 			assert(rc == P1_SUCCESS);
 		}
 		
