@@ -22,9 +22,14 @@ int P2_Startup(void *notused)
         }
         for (int j = 0; j < NUM; j++) {
             int pid;
-            rc = P1_Join(1, &pid, &status);
+            rc = P1_Join(0, &pid, &status);
+			
+			//rc = P1_Join(1, &pid, &status); // this one should return no_children, since there is no matching
+			
+			//rc = P1_Join(2, &pid, &status); // this one should return invalid tag, since tag should be 1 or 0
 			assert(rc != P1_INVALID_TAG); // check tag
-            assert(rc == P1_SUCCESS);
+            assert(rc != P1_SUCCESS);
+			assert(rc != P1_NO_CHILDREN); //
             int found = 0;
             for (int k = 0; k < NUM; k++) {
                 if (pids[k] == pid) {
