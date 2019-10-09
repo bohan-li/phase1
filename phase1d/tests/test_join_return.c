@@ -39,9 +39,10 @@ int P2_Startup(void *no){
   
   rc = P1_Fork(NULL, child, arg, USLOSS_MIN_STACK, 4, 1, &pid);
   assert(rc == P1_NAME_IS_NULL);
-  
   rc = P1_Fork("valid", child, arg, USLOSS_MIN_STACK, 4, 1, &pid);
   assert(rc == P1_SUCCESS);
+  rc = P1_Join(0, &pid, &status);
+  assert(rc == P1_NO_CHILDREN);
   rc = P1_Join(1, &pid, &status);
   assert(rc == P1_SUCCESS);
   assert(global == 6);

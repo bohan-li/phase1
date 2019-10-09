@@ -26,6 +26,7 @@ typedef struct device {
 
 static Device devices[USLOSS_MAX_TYPES][USLOSS_MAX_UNITS];
 
+// starts up and creates the sentinel
 void 
 startup(int argc, char **argv)
 {
@@ -62,6 +63,7 @@ startup(int argc, char **argv)
 
 } /* End of startup */
 
+// causes the device specified by the given type and unit to wait
 int 
 P1_WaitDevice(int type, int unit, int *status) 
 {
@@ -79,6 +81,8 @@ P1_WaitDevice(int type, int unit, int *status)
     return devices[type][unit].abort ? P1_WAIT_ABORTED : P1_SUCCESS;
 }
 
+// Wakes up the device given by the type and the unit.
+// The status is set as the device status.
 int 
 P1_WakeupDevice(int type, int unit, int status, int abort) 
 {
@@ -97,6 +101,7 @@ P1_WakeupDevice(int type, int unit, int status, int abort)
 }
 static int tick = 0;
 
+// handles all interrupts for phase 1
 static void
 DeviceHandler(int type, void *arg) 
 {
@@ -113,6 +118,7 @@ DeviceHandler(int type, void *arg)
     else P1_WakeupDevice(type, unit, status, FALSE);
 }
 
+// first process, is always runnable
 static int
 sentinel (void *notused)
 {
@@ -143,6 +149,7 @@ sentinel (void *notused)
     return 0;
 } /* End of sentinel */
 
+// rejoins the parent process with a child of the given tag
 int 
 P1_Join(int tag, int *pid, int *status) 
 {
@@ -179,10 +186,13 @@ void checkIfIsKernel(){
     }
 }
 
+// validates type of device
 int isValidType(int type) {
 	return type < USLOSS_MAX_TYPES;
 }
 
+// validates unit given the device's type,
+// different types have different # of units
 int isValidUnit(int type, int unit) {
 	switch (type) {
 		case USLOSS_CLOCK_DEV: return unit < USLOSS_CLOCK_UNITS;
