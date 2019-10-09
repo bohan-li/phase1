@@ -2,27 +2,29 @@
 #include <assert.h>
 #include <stdio.h>
 
-int Child(void *arg) {
+int child(void *arg) {
     USLOSS_Console("Child %d\n", (int) arg);
     return (int) arg;
 }
 
 int P2_Startup(void *notused)
 {
-    #define NUM 10
-    int status = 0;
-    int rc;
-    int pids[NUM];
-    for (int i = 0; i < 100; i++) {
-        for (int j = 0; j < NUM; j++) {
-            char name[P1_MAXNAME+1];
-            snprintf(name, sizeof(name), "Child %d", j);
-            rc = P1_Fork(name, Child, (void *) j, USLOSS_MIN_STACK, 3, 0, &pids[j]);
-            assert(rc == P1_SUCCESS);
-        }
-        for (int j = 0; j < NUM; j++) {
-            int pid;
-            rc = P1_Join(0, &pid, &status);
+ int status;
+  int rc;
+  int pid;
+  void *arg = (void *) 5;
+    rc = P1_Fork("invalid", child, arg, USLOSS_MIN_STACK, -1, 0, &pid);
+		
+		
+	rc = P1_Fork("invalid", child, arg, USLOSS_MIN_STACK, 3, 7, &pid);
+		
+	
+	//rc = P1_Fork("child", child, NULL, USLOSS_MIN_STACK, 4 , 0, &pid); //this with two invalid, will return success
+	
+	rc = P1_Fork("invalid", child, arg, USLOSS_MIN_STACK, 3, 7, &pid); // this with two invalid, will return no_children
+    
+
+      rc = P1_Join(0, &pid, &status);
 			
 			//rc = P1_Join(1, &pid, &status); // this one should return no_children, since there is no matching
 			
@@ -30,18 +32,8 @@ int P2_Startup(void *notused)
 			assert(rc != P1_INVALID_TAG); // check tag
             assert(rc != P1_SUCCESS);
 			assert(rc != P1_NO_CHILDREN); //
-            int found = 0;
-            for (int k = 0; k < NUM; k++) {
-                if (pids[k] == pid) {
-                    found = 1;
-                    assert(status == k);
-                    pids[k] = -1;
-                    break;
-                }
-            }
-            assert(found);
-        }
-    }
+       
+    
     return status;
 }
 
