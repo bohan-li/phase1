@@ -1,3 +1,9 @@
+/*
+This case is mainly to test output of test_join
+If there are three invalid children, test_join will return no_children
+If there are two invalid children and one valid child, test_join will return success
+
+*/
 #include "phase1.h"
 #include <assert.h>
 #include <stdio.h>
